@@ -69,6 +69,12 @@ export function createSchema<S extends SchemaShape>(
         const fieldDef = schema.shape[key];
         const value = (input as any)[key];
 
+        // Guard against missing field definitions to satisfy TypeScript
+        if (!fieldDef) {
+          errors.push(`Field definition missing for: ${key}`);
+          continue;
+        }
+
         if (value === undefined || value === null) {
           if (!(fieldDef.optional ?? false)) {
             errors.push(`Missing required field: ${key}`);
@@ -453,6 +459,7 @@ export function createSchema<S extends SchemaShape>(
       const result: any = {};
       for (const key in shape) {
         const field = shape[key];
+        if (!field) continue;
         const value = input[key];
 
         if (field._pii?.action === "encrypt") {
@@ -466,7 +473,6 @@ export function createSchema<S extends SchemaShape>(
       return result;
     },
 
-    // 🔓 Auto-prepare after load (decrypt PII)
     prepareForRead(
       stored: Record<string, any>,
       decryptFn: (value: string) => any
@@ -474,6 +480,7 @@ export function createSchema<S extends SchemaShape>(
       const result: any = {};
       for (const key in shape) {
         const field = shape[key];
+        if (!field) continue;
 
         if (field._pii?.action === "encrypt") {
           result[key] = decryptFn(stored[key + "Encrypted"]);
@@ -483,8 +490,7 @@ export function createSchema<S extends SchemaShape>(
       }
       return result;
     },
-
-    // 🧼 Auto-sanitize for logging
+    // 🔍 Sanitize for logging (redact/pseudonymize PII)
     sanitizeForLog(
       data: Record<string, any>,
       pseudonymFn: (value: any) => string
@@ -492,6 +498,7 @@ export function createSchema<S extends SchemaShape>(
       const output: any = {};
       for (const key in shape) {
         const field = shape[key];
+        if (!field) continue;
         const value = data[key];
 
         if (field._pii?.logHandling === "omit") continue;
@@ -505,8 +512,6 @@ export function createSchema<S extends SchemaShape>(
       }
       return output;
     },
-
-    // 🕵️‍♂️ Get PII audit information
     getPiiAudit(): Array<{
       field: string;
       classification: PIIClassification;
@@ -518,6 +523,7 @@ export function createSchema<S extends SchemaShape>(
 
       for (const key in shape) {
         const field = shape[key];
+        if (!field) continue;
         if (field._pii && field._pii.classification !== "none") {
           piiFields.push({
             field: key,
@@ -532,12 +538,12 @@ export function createSchema<S extends SchemaShape>(
       return piiFields;
     },
 
-    // 🧼 Scrub PII for deletion
     scrubPiiForDelete(stored: Record<string, any>): Record<string, any> {
       const result: any = { ...stored };
 
       for (const key in shape) {
         const field = shape[key];
+        if (!field) continue;
 
         if (field._pii?.action === "encrypt") {
           result[key + "Encrypted"] = null;
