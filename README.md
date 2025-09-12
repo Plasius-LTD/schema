@@ -26,47 +26,8 @@ npm install @plasius/schema
 ## Usage Example
 
 ```js
-import {
-  defineEntity,
-  validateEntity,
-  bumpEntityVersion,
-} from "@plasius/schema";
 
-// Define an entity schema
-const userSchema = defineEntity({
-  name: "User",
-  version: 1,
-  fields: {
-    id: { type: "string", required: true },
-    email: { type: "string", required: true },
-    name: { type: "string", required: false },
-  },
-});
-
-// Validate an entity instance
-const user = { id: "abc123", email: "user@example.com", name: "Alice" };
-const { valid, errors } = validateEntity(userSchema, user);
-console.log(valid); // true
-console.log(errors); // []
-
-// Bump entity version
-const userV2 = bumpEntityVersion(userSchema, 2, {
-  fields: {
-    ...userSchema.fields,
-    isActive: { type: "boolean", required: false },
-  },
-});
-console.log(userV2.version); // 2
 ```
-
----
-
-## Key Documentation
-
-- [Plasius Pillars](https://github.com/plasius/plasius/blob/main/docs/pillars.md)
-- [Investor Brief](https://github.com/plasius/plasius/blob/main/docs/investor-brief.md)
-- [Competition](https://github.com/plasius/plasius/blob/main/docs/competition.md)
-- [Architecture Decision Records (ADRs)](https://github.com/plasius/plasius/tree/main/docs/architecture/adr)
 
 ---
 
