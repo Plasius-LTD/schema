@@ -408,4 +408,84 @@ describe("schema.ts – validator coverage", () => {
     });
     expectValid(result);
   });
+
+  // --- Positive paths to complement the negative coverage above ---
+  it("should pass when required enum field is provided with an allowed value", () => {
+    const result = StringEnum.validate({ k: "A" });
+    expectValid(result);
+  });
+
+  it("should pass when number field is a number", () => {
+    const result = NumberField.validate({ n: 42 });
+    expectValid(result);
+  });
+
+  it("should pass when boolean field is a boolean", () => {
+    const result = BooleanField.validate({ b: false });
+    expectValid(result);
+  });
+
+  it("should pass when object has required child and omits optionals", () => {
+    const result = SimpleObject.validate({ o: { a: "hello" } });
+    expectValid(result);
+  });
+
+  it("should pass when object provides valid nested optional object", () => {
+    const result = SimpleObject.validate({
+      o: { a: "hi", b: 10, nested: { f: true, tag: "x" } },
+    });
+    expectValid(result);
+  });
+
+  it("should pass when array of strings contains only allowed enum values", () => {
+    const result = ArrayOfStrings.validate({ tags: ["alpha", "beta"] });
+    expectValid(result);
+  });
+
+  it("should pass when array of numbers contains only numbers", () => {
+    const result = ArrayOfNumbers.validate({ nums: [0, 1, 2, 3.14] });
+    expectValid(result);
+  });
+
+  it("should pass when array of booleans contains only booleans", () => {
+    const result = ArrayOfBooleans.validate({ flags: [true, false, true] });
+    expectValid(result);
+  });
+
+  it("should pass when array of objects contains minimal valid items (optionals omitted)", () => {
+    const result = ArrayOfObjects.validate({ items: [{ type: "a" }, { type: "b" }] });
+    expectValid(result);
+  });
+
+  it("should pass when immutable field remains unchanged compared to existing value", () => {
+    const fixed = field.string().immutable() as any;
+    const S = createSchema({ fixed }, "ImmutableOK", {
+      version: "1.0",
+      piiEnforcement: "strict",
+    });
+    const existing = { fixed: "A" };
+    const r = S.validate({ fixed: "A" }, existing);
+    expectValid(r);
+  });
+
+  it("should pass when high PII required field is non-empty under strict enforcement", () => {
+    const secret = field.string() as any;
+    secret._pii = { classification: "high" };
+    const S = createSchema({ secret }, "PII_OK", {
+      version: "1.0",
+      piiEnforcement: "strict",
+    });
+    const r = S.validate({ secret: "non-empty" });
+    expectValid(r);
+  });
+
+  it("should pass when custom field validator returns true", () => {
+    const S = createSchema(
+      { ok: field.string().validator((v) => v === "ok") },
+      "CustomValidatorOK",
+      { version: "1.0", piiEnforcement: "strict" }
+    );
+    const r = S.validate({ ok: "ok" });
+    expectValid(r);
+  });
 });
