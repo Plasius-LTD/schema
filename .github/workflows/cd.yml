@@ -6,7 +6,7 @@ on:
     types: [published]
 
 permissions:
-  contents: read
+  contents: write
   id-token: write # for npm provenance (requires Node 18+ and npm >=9)
 
 jobs:
@@ -31,16 +31,18 @@ jobs:
       - name: Build
         run: npm run build --if-present
 
-      - name: Set npm scope and auth
-        run: |
-          npm config set scope "@plasius"
-          npm config set //registry.npmjs.org/:_authToken=${NPM_TOKEN}
+      - name: Bump version & decide publish flags
+        id: pkg
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Determine publish flags (first publish needs --access public)
-        id: pkg
         run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          NEW_VER=$(npm version patch -m "chore: release v%s [skip ci]")
+          echo "New version: $NEW_VER"
+          git push --follow-tags
+
           NAME=$(node -p "require('./package.json').name")
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
           if npm view "$NAME" version >/dev/null 2>&1; then
