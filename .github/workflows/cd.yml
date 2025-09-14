@@ -29,8 +29,11 @@ jobs:
       - name: Build
         run: npm run build --if-present
 
-      - name: Configure npm auth (explicit)
-        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+      - name: Set npm scope and auth
+        run: |
+          npm config set scope "@plasius"
+          npm config set user "${{ secrets.NPM_USER }}"
+          npm config set //registry.npmjs.org/:_authToken=${NPM_TOKEN}
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
