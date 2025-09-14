@@ -1,0 +1,70 @@
+{
+  "name": "@plasius/schema",
+  "version": "1.0.7",
+  "description": "Entity schema definition & validation helpers for Plasius ecosystem",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "prepare": "npm run build",
+    "clean": "rimraf dist"
+  },
+  "keywords": [
+    "schema",
+    "validation",
+    "data-validation",
+    "schema-validation",
+    "typed-schema",
+    "json-schema",
+    "typescript",
+    "typesafe",
+    "runtime-validation",
+    "type-safety",
+    "plasius",
+    "schema-helper",
+    "entity-schema",
+    "domain-modeling",
+    "agnostic",
+    "oss",
+    "frontend",
+    "backend",
+    "portable",
+    "scalability",
+    "monorepo-friendly"
+  ],
+  "author": "Plasius LTD <development@plasius.co.uk>",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Plasius-LTD/schema.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Plasius-LTD/schema/issues"
+  },
+  "homepage": "https://github.com/Plasius-LTD/schema#readme",
+  "devDependencies": {
+    "@types/node": "^24.3.1",
+    "@typescript-eslint/eslint-plugin": "^8.43.0",
+    "@typescript-eslint/parser": "^8.43.0",
+    "eslint": "^9.35.0",
+    "tsup": "^8.5.0",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
