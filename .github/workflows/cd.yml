@@ -1,0 +1,55 @@
+name: CD (Publish to npm)
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write # for npm provenance (requires Node 18+ and npm >=9)
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org/
+
+      - name: Install deps (CI)
+        run: npm ci
+
+      - name: Build
+        run: npm run build --if-present
+
+      - name: Set npm scope and auth
+        run: |
+          npm config set scope "@plasius"
+          npm config set //registry.npmjs.org/:_authToken=${NPM_TOKEN}
+          npm config set //registry.npmjs.org/:always-auth=true
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Determine publish flags (first publish needs --access public)
+        id: pkg
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          if npm view "$NAME" version >/dev/null 2>&1; then
+            echo "flags=" >> "$GITHUB_OUTPUT"
+          else
+            echo "flags=--access public" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm publish ${{ steps.pkg.outputs.flags }} --provenance
