@@ -2,6 +2,14 @@ import { Infer } from "./infer.js";
 import { FieldType, Schema, SchemaOptions, SchemaShape } from "./types.js";
 import { field } from "./field.js";
 import { PIIAction, PIIClassification, PIILogHandling } from "./pii.js";
+import {
+  enforcePIIField,
+  prepareForStorage as piiPrepareForStorage,
+  prepareForRead as piiPrepareForRead,
+  sanitizeForLog as piiSanitizeForLog,
+  getPiiAudit as piiGetPiiAudit,
+  scrubPiiForDelete as piiScrubPiiForDelete,
+} from "./pii.js";
 import { FieldBuilder } from "./field.builder.js";
 
 const globalSchemaRegistry = new Map<string, Schema<any>>();
@@ -105,36 +113,6 @@ function checkImmutable(
     return { immutableViolation: true };
   }
   return { immutableViolation: false };
-}
-
-function enforcePII(
-  parentKey: string,
-  key: string,
-  value: any,
-  def: any,
-  schemaOptions: SchemaOptions,
-  errors: string[]
-): { shortCircuit: boolean } {
-  const path = parentKey ? `${parentKey}.${key}` : key;
-
-  // Enforce "high" classification fields are not empty (unless optional)
-  if (def._pii?.classification === "high" && !isOptional(def)) {
-    const missing = value === undefined || value === null || value === "";
-    if (missing) {
-      const msg = `High PII field must not be empty: ${path}`;
-      if (
-        schemaOptions.piiEnforcement === "strict" ||
-        !schemaOptions.piiEnforcement
-      ) {
-        errors.push(msg);
-        // In strict mode, original code continued to next field; signal caller to short-circuit
-        return { shortCircuit: true };
-      } else if (schemaOptions.piiEnforcement === "warn") {
-        console.warn(`WARN (PII Enforcement): ${msg}`);
-      }
-    }
-  }
-  return { shortCircuit: false };
 }
 
 function runCustomValidator(
@@ -553,13 +531,14 @@ export function createSchema<S extends SchemaShape>(
         if (immutableViolation) continue;
 
         // 3) PII enforcement (may short-circuit)
-        const { shortCircuit } = enforcePII(
+        const { shortCircuit } = enforcePIIField(
           "",
           key,
           value,
           def,
-          options,
-          errors
+          options.piiEnforcement ?? "none",
+          errors,
+          console
         );
         if (shortCircuit) continue;
 
@@ -677,62 +656,24 @@ export function createSchema<S extends SchemaShape>(
       encryptFn: (value: any) => string,
       hashFn: (value: any) => string
     ): Record<string, any> {
-      const result: any = {};
-      for (const key in _shape) {
-        const field = _shape[key];
-        if (!field) continue;
-        const value = input[key];
-
-        if (field._pii?.action === "encrypt") {
-          result[key + "Encrypted"] = encryptFn(value);
-        } else if (field._pii?.action === "hash") {
-          result[key + "Hash"] = hashFn(value);
-        } else {
-          result[key] = value;
-        }
-      }
-      return result;
+      return piiPrepareForStorage(_shape, input, encryptFn, hashFn);
     },
 
     prepareForRead(
       stored: Record<string, any>,
       decryptFn: (value: string) => any
     ): Record<string, any> {
-      const result: any = {};
-      for (const key in _shape) {
-        const field = _shape[key];
-        if (!field) continue;
-
-        if (field._pii?.action === "encrypt") {
-          result[key] = decryptFn(stored[key + "Encrypted"]);
-        } else {
-          result[key] = stored[key];
-        }
-      }
-      return result;
+      return piiPrepareForRead(_shape, stored, decryptFn);
     },
+
     // 🔍 Sanitize for logging (redact/pseudonymize PII)
     sanitizeForLog(
       data: Record<string, any>,
       pseudonymFn: (value: any) => string
     ): Record<string, any> {
-      const output: any = {};
-      for (const key in _shape) {
-        const field = _shape[key];
-        if (!field) continue;
-        const value = data[key];
-
-        if (field._pii?.logHandling === "omit") continue;
-        if (field._pii?.logHandling === "redact") {
-          output[key] = "[REDACTED]";
-        } else if (field._pii?.logHandling === "pseudonym") {
-          output[key] = pseudonymFn(value);
-        } else {
-          output[key] = value;
-        }
-      }
-      return output;
+      return piiSanitizeForLog(_shape, data, pseudonymFn);
     },
+
     getPiiAudit(): Array<{
       field: string;
       classification: PIIClassification;
@@ -740,43 +681,11 @@ export function createSchema<S extends SchemaShape>(
       logHandling?: PIILogHandling;
       purpose?: string;
     }> {
-      const piiFields: Array<any> = [];
-
-      for (const key in _shape) {
-        const field = _shape[key];
-        if (!field) continue;
-        if (field._pii && field._pii.classification !== "none") {
-          piiFields.push({
-            field: key,
-            classification: field._pii.classification,
-            action: field._pii.action,
-            logHandling: field._pii.logHandling,
-            purpose: field._pii.purpose,
-          });
-        }
-      }
-
-      return piiFields;
+      return piiGetPiiAudit(_shape);
     },
 
     scrubPiiForDelete(stored: Record<string, any>): Record<string, any> {
-      const result: any = { ...stored };
-
-      for (const key in _shape) {
-        const field = _shape[key];
-        if (!field) continue;
-
-        if (field._pii?.action === "encrypt") {
-          result[key + "Encrypted"] = null;
-        } else if (field._pii?.action === "hash") {
-          result[key + "Hash"] = null;
-        } else if (field._pii?.action === "clear") {
-          result[key] = null;
-        }
-        // else: not PII — leave unchanged
-      }
-
-      return result;
+      return piiScrubPiiForDelete(_shape, stored);
     },
 
     describe() {

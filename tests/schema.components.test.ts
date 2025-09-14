@@ -110,8 +110,12 @@ describe("schema.ts – validator coverage", () => {
 
   // 4) High PII empty under strict (only if such flag exists)
   it("should fail when high PII required field is empty under strict enforcement", () => {
-    const secret = field.string() as any;
-    secret._pii = { classification: "high" };
+    const secret = field.string().PID({
+      classification: "high",
+      action: "encrypt",
+      logHandling: "redact",
+      purpose: "pii security test",
+    }) as any;
     // required by default (not optional)
     const S = createSchema({ secret }, "PII", {
       version: "1.0",
@@ -453,7 +457,9 @@ describe("schema.ts – validator coverage", () => {
   });
 
   it("should pass when array of objects contains minimal valid items (optionals omitted)", () => {
-    const result = ArrayOfObjects.validate({ items: [{ type: "a" }, { type: "b" }] });
+    const result = ArrayOfObjects.validate({
+      items: [{ type: "a" }, { type: "b" }],
+    });
     expectValid(result);
   });
 
@@ -469,8 +475,12 @@ describe("schema.ts – validator coverage", () => {
   });
 
   it("should pass when high PII required field is non-empty under strict enforcement", () => {
-    const secret = field.string() as any;
-    secret._pii = { classification: "high" };
+    const secret = field.string().PID({
+      classification: "high",
+      action: "encrypt",
+      logHandling: "redact",
+      purpose: "pii security test",
+    }) as any;
     const S = createSchema({ secret }, "PII_OK", {
       version: "1.0",
       piiEnforcement: "strict",
