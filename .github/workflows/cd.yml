@@ -29,35 +29,6 @@ jobs:
       - name: Build
         run: npm run build --if-present
 
-      - name: Configure & verify npm auth (npmjs)
-        env:
-            NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-            set -euo pipefail
-
-            # 1) Ensure the secret is actually present (GitHub masks secrets; this only checks non-empty)
-            if [ -z "${NPM_TOKEN:-}" ]; then
-            echo "🛑 NPM_TOKEN is empty or not available to this workflow run." >&2
-            echo "   - Confirm repo/org secret 'NPM_TOKEN' exists" >&2
-            echo "   - Ensure this run is NOT from a forked PR (secrets blocked)" >&2
-            exit 1
-            fi
-
-            # 2) Write a clean user-level npmrc for the public npm registry
-            echo "registry=https://registry.npmjs.org/" > "$HOME/.npmrc"
-            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> "$HOME/.npmrc"
-            npm config set always-auth true
-
-            echo "Using registry: $(npm config get registry)"
-
-            # 3) Optional sanity: query whoami against the correct registry
-            if ! npm whoami --registry https://registry.npmjs.org/ > /dev/null 2>&1; then
-            echo "🛑 npm whoami failed — token invalid or lacks read scope." >&2
-            echo "   Recreate a Granular token with Packages→Publish (Read & Write) for scope @plasius" >&2
-            exit 1
-            fi
-            echo "✅ npm auth OK for $(npm whoami --registry https://registry.npmjs.org/)"
-
       - name: Bump version & decide publish flags
         id: pkg
         env:
