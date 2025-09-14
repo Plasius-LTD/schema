@@ -41,7 +41,7 @@ export interface FieldDefinition<T = unknown> {
   autoValidate?: boolean;
   refPolicy?: "eager" | "lazy";
   enum?: string[];
-  shape?: SchemaShape;
+  _shape?: SchemaShape;
   pii?: PII;
   validator?: (value: any) => boolean;
 }
@@ -56,7 +56,7 @@ export interface ValidateCompositionOptions {
 
 export interface Schema<T extends SchemaShape> {
   //// The shape of the schema.
-  shape: T;
+  _shape: T;
 
   //// System metadata about the schema
   meta: { entityType: string; version: string };
@@ -65,7 +65,10 @@ export interface Schema<T extends SchemaShape> {
   schemaValidator: (entity: Infer<T>) => boolean;
 
   // Validate an input object against the schema
-  validate: (input: unknown) => ValidationResult<Infer<T>>;
+  validate: (
+    input: unknown,
+    existing?: Record<string, any>
+  ) => ValidationResult<Infer<T>>;
 
   // Validate an input object against the schema, with options for composition validation
   validateComposition: (

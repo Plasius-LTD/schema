@@ -9,10 +9,10 @@ export class FieldBuilder<TExternal = unknown, TInternal = TExternal> {
   isSystem = false;
   isImmutable = false;
   isRequired = true;
-  validatorFn?: (value: any) => boolean;
+  _validator?: (value: any) => boolean;
   _description: string = "";
   _version: string = "1.0";
-  shape?: Record<string, FieldBuilder<any>>;
+  _shape?: Record<string, FieldBuilder<any>>;
   itemType?: FieldBuilder<any>;
   refType?: string;
   _pii: PII = {
@@ -31,7 +31,7 @@ export class FieldBuilder<TExternal = unknown, TInternal = TExternal> {
       refType?: string;
     } = {}
   ) {
-    this.shape = options.shape;
+    this._shape = options.shape;
     this.itemType = options.itemType;
     this.refType = options.refType;
   }
@@ -59,7 +59,7 @@ export class FieldBuilder<TExternal = unknown, TInternal = TExternal> {
   validator(
     fn: (value: TInternal) => boolean
   ): FieldBuilder<TExternal, TInternal> {
-    this.validatorFn = fn;
+    this._validator = fn;
     return this;
   }
 
@@ -101,7 +101,7 @@ export class FieldBuilder<TExternal = unknown, TInternal = TExternal> {
 
   as<U>(): FieldBuilder<U, TInternal> {
     const clone = new FieldBuilder<U, TInternal>(this.type, {
-      shape: this.shape,
+      shape: this._shape,
       itemType: this.itemType,
     });
     clone.enumValues = this.enumValues;
@@ -111,7 +111,7 @@ export class FieldBuilder<TExternal = unknown, TInternal = TExternal> {
     clone._description = this._description;
     clone._version = this._version;
     clone._pii = this._pii;
-    clone.validatorFn = this.validatorFn as any;
+    clone._validator = this._validator as any;
     return clone;
   }
 }

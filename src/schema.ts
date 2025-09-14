@@ -7,7 +7,7 @@ import { FieldBuilder } from "./field.builder.js";
 const globalSchemaRegistry = new Map<string, Schema<any>>();
 
 function validateEnum(
-  key: string,
+  parentKey: string,
   value: any,
   enumValues?: Array<string | number>
 ): string | undefined {
@@ -20,17 +20,475 @@ function validateEnum(
   if (Array.isArray(value)) {
     const invalid = value.filter((v) => !values.includes(v));
     if (invalid.length > 0) {
-      return `Field ${key} contains invalid enum values: ${invalid.join(", ")}`;
+      return `Field ${parentKey} contains invalid enum values: ${invalid.join(
+        ", "
+      )}`;
     }
   } else {
     if (!values.includes(value)) {
-      return `Field ${key} must be one of: ${values.join(", ")}`;
+      return `Field ${parentKey} must be one of: ${values.join(", ")}`;
     }
   }
 }
 
+// Helper: some builders may store enum/optional/validator under different keys
+// schema.ts
+function getEnumValues(def: any): Array<string | number> | undefined {
+  const src = Array.isArray(def?.enum)
+    ? def.enum
+    : Array.isArray(def?.enumValues)
+    ? def.enumValues
+    : Array.isArray(def?._enum)
+    ? def._enum
+    : Array.isArray(def?._enumValues)
+    ? def._enumValues
+    : def?._enumSet instanceof Set
+    ? Array.from(def._enumSet)
+    : undefined;
+
+  if (!src) return undefined;
+  const ok = src.every(
+    (v: unknown) => typeof v === "string" || typeof v === "number"
+  );
+  return ok ? (src as Array<string | number>) : undefined;
+}
+
+function isOptional(def: any): boolean {
+  return (def?.isRequired ?? false) === false;
+}
+
+function getValidator(def: any): ((v: any) => boolean) | undefined {
+  return def?._validator ?? undefined;
+}
+
+function getShape(def: any): Record<string, any> | undefined {
+  return def?._shape ?? def?.shape ?? undefined;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Validation helpers (extracted from validate())
+// ──────────────────────────────────────────────────────────────────────────────
+
+function checkMissingRequired(
+  parentKey: string,
+  key: string,
+  value: any,
+  def: any,
+  errors: string[]
+): { missing: boolean } {
+  if (value === undefined || value === null) {
+    const path = parentKey ? `${parentKey}.${key}` : key;
+    if (!isOptional(def)) {
+      errors.push(`Missing required field: ${path}`);
+    }
+    return { missing: true };
+  }
+  return { missing: false };
+}
+
+function checkImmutable(
+  parentKey: string,
+  key: string,
+  value: any,
+  def: any,
+  existing: Record<string, any> | undefined,
+  errors: string[]
+): { immutableViolation: boolean } {
+  if (
+    def.isImmutable &&
+    existing &&
+    existing[key] !== undefined &&
+    value !== existing[key]
+  ) {
+    const path = parentKey ? `${parentKey}.${key}` : key;
+    errors.push(`Field is immutable: ${path}`);
+    return { immutableViolation: true };
+  }
+  return { immutableViolation: false };
+}
+
+function enforcePII(
+  parentKey: string,
+  key: string,
+  value: any,
+  def: any,
+  schemaOptions: SchemaOptions,
+  errors: string[]
+): { shortCircuit: boolean } {
+  const path = parentKey ? `${parentKey}.${key}` : key;
+
+  // Enforce "high" classification fields are not empty (unless optional)
+  if (def._pii?.classification === "high" && !isOptional(def)) {
+    const missing = value === undefined || value === null || value === "";
+    if (missing) {
+      const msg = `High PII field must not be empty: ${path}`;
+      if (
+        schemaOptions.piiEnforcement === "strict" ||
+        !schemaOptions.piiEnforcement
+      ) {
+        errors.push(msg);
+        // In strict mode, original code continued to next field; signal caller to short-circuit
+        return { shortCircuit: true };
+      } else if (schemaOptions.piiEnforcement === "warn") {
+        console.warn(`WARN (PII Enforcement): ${msg}`);
+      }
+    }
+  }
+  return { shortCircuit: false };
+}
+
+function runCustomValidator(
+  parentKey: string,
+  key: string,
+  value: any,
+  def: any,
+  errors: string[]
+): { invalid: boolean } {
+  const validator = getValidator(def);
+  if (validator && value !== undefined && value !== null) {
+    const valid = validator(value);
+    if (!valid) {
+      const path = parentKey ? `${parentKey}.${key}` : key;
+      errors.push(`Invalid value for field: ${path}`);
+      return { invalid: true };
+    }
+  }
+  return { invalid: false };
+}
+
+function validateStringField(
+  parentKey: string,
+  key: string,
+  value: any,
+  def: any,
+  errors: string[]
+) {
+  const path = parentKey ? `${parentKey}.${key}` : key;
+  if (typeof value !== "string") {
+    errors.push(`Field ${path} must be string`);
+    return;
+  }
+
+  const enumValues = getEnumValues(def);
+  if (Array.isArray(enumValues)) {
+    const enumError = validateEnum(path, value, enumValues);
+    if (enumError) {
+      errors.push(enumError);
+    }
+  }
+}
+
+function validateNumberField(
+  parentKey: string,
+  key: string,
+  value: any,
+  _def: any,
+  errors: string[]
+) {
+  const enumPath = parentKey ? `${parentKey}.${key}` : key;
+  if (typeof value !== "number") {
+    errors.push(`Field ${enumPath} must be number`);
+  }
+}
+
+function validateBooleanField(
+  parentKey: string,
+  key: string,
+  value: any,
+  _def: any,
+  errors: string[]
+) {
+  const path = parentKey ? `${parentKey}.${key}` : key;
+  if (typeof value !== "boolean") {
+    errors.push(`Field ${path} must be boolean`);
+  }
+}
+
+function validateObjectChildren(
+  parentKey: string,
+  obj: any,
+  shape: Record<string, any>,
+  errors: string[]
+) {
+  for (const [childKey, childDef] of Object.entries(shape) as [
+    string,
+    FieldBuilder<any>
+  ][]) {
+    const childValue = obj[childKey];
+
+    // Required check
+    const { missing } = checkMissingRequired(
+      parentKey,
+      childKey,
+      childValue,
+      childDef,
+      errors
+    );
+    if (missing) continue;
+
+    // Custom validator (per-field)
+    const { invalid } = runCustomValidator(
+      parentKey,
+      childKey,
+      childValue,
+      childDef,
+      errors
+    );
+    if (invalid) continue;
+
+    // Type-specific validation (string/number/boolean/object/array/ref)
+    // This will recurse into nested objects via validateObjectField → validateObjectChildren
+    validateByType(parentKey, childKey, childValue, childDef, errors);
+  }
+}
+
+function validateObjectField(
+  parentKey: string,
+  key: string,
+  value: any,
+  def: any,
+  errors: string[]
+) {
+  const path = parentKey ? `${parentKey}.${key}` : key;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    errors.push(`Field ${path} must be object`);
+    return;
+  }
+  const objShape = getShape(def);
+  if (objShape) validateObjectChildren(path, value, objShape, errors);
+}
+
+function validateArrayOfStrings(
+  parentKey: string,
+  key: string,
+  arr: any[],
+  itemDef: any,
+  errors: string[]
+) {
+  const path = parentKey ? `${parentKey}.${key}` : key;
+  if (!arr.every((v) => typeof v === "string")) {
+    errors.push(`Field ${path} must be string[]`);
+    return;
+  }
+  const enumValues = getEnumValues(itemDef);
+  if (Array.isArray(enumValues)) {
+    const enumError = validateEnum(path, arr, enumValues);
+    if (enumError) {
+      errors.push(enumError);
+    }
+  }
+}
+
+function validateArrayOfNumbers(
+  parentKey: string,
+  key: string,
+  arr: any[],
+  itemDef: any,
+  errors: string[]
+) {
+  const path = parentKey ? `${parentKey}.${key}` : key;
+  if (!arr.every((v) => typeof v === "number")) {
+    errors.push(`Field ${path} must be number[]`);
+  }
+
+  const enumValues = getEnumValues(itemDef);
+  if (Array.isArray(enumValues)) {
+    const enumError = validateEnum(path, arr, enumValues);
+    if (enumError) {
+      errors.push(enumError);
+    }
+  }
+}
+
+function validateArrayOfBooleans(
+  parentKey: string,
+  key: string,
+  arr: any[],
+  _itemDef: any,
+  errors: string[]
+) {
+  const path = parentKey ? `${parentKey}.${key}` : key;
+  if (!arr.every((v) => typeof v === "boolean")) {
+    errors.push(`Field ${path} must be boolean[]`);
+  }
+}
+
+function validateArrayOfObjects(
+  parentKey: string,
+  key: string,
+  arr: any[],
+  itemDef: any,
+  errors: string[]
+) {
+  const path = parentKey ? `${parentKey}.${key}` : key;
+
+  if (
+    !Array.isArray(arr) ||
+    !arr.every((v) => typeof v === "object" && v !== null && !Array.isArray(v))
+  ) {
+    errors.push(`Field ${path} must be object[]`);
+    return;
+  }
+
+  const itemShape = getShape(itemDef);
+  if (!itemShape) return;
+
+  arr.forEach((item, idx) => {
+    const itemParent = `${path}[${idx}]`;
+    for (const [childKey, childDef] of Object.entries(itemShape) as [
+      string,
+      FieldBuilder<any>
+    ][]) {
+      const childValue = (item as any)[childKey];
+
+      // Required check (path-aware)
+      const { missing } = checkMissingRequired(
+        itemParent,
+        childKey,
+        childValue,
+        childDef,
+        errors
+      );
+      if (missing) continue;
+
+      // Custom validator (path-aware)
+      const { invalid } = runCustomValidator(
+        itemParent,
+        childKey,
+        childValue,
+        childDef,
+        errors
+      );
+      if (invalid) continue;
+
+      // Type-specific validation (recurses into nested object/array/ref)
+      validateByType(itemParent, childKey, childValue, childDef, errors);
+    }
+  });
+}
+
+function validateArrayField(
+  parentKey: string,
+  key: string,
+  value: any,
+  def: any,
+  errors: string[]
+) {
+  const path = parentKey ? `${parentKey}.${key}` : key;
+  if (!Array.isArray(value)) {
+    errors.push(`Field ${key} must be an array`);
+    return;
+  }
+  const itemType = def.itemType?.type;
+  if (itemType === "string")
+    return validateArrayOfStrings(parentKey, key, value, def.itemType, errors);
+  if (itemType === "number")
+    return validateArrayOfNumbers(parentKey, key, value, def.itemType, errors);
+  if (itemType === "boolean")
+    return validateArrayOfBooleans(parentKey, key, value, def.itemType, errors);
+  if (itemType === "object")
+    return validateArrayOfObjects(parentKey, key, value, def.itemType, errors);
+  if (itemType === "ref") {
+    const expectedType = (def.itemType as any).refType;
+    value.forEach((ref: any, idx: number) => {
+      if (
+        !ref ||
+        typeof ref !== "object" ||
+        ref === null ||
+        typeof ref.type !== "string" ||
+        typeof ref.id !== "string" ||
+        (expectedType && ref.type !== expectedType)
+      ) {
+        errors.push(
+          `Field ${path}[${idx}] must be a reference object with type: ${expectedType}`
+        );
+      }
+    });
+    const refShape = getShape(def.itemType);
+    if (refShape) {
+      value.forEach((ref: any, idx: number) => {
+        if (ref && typeof ref === "object" && ref !== null) {
+          for (const [childKey, childDef] of Object.entries(refShape) as [
+            string,
+            FieldBuilder<any>
+          ][]) {
+            const childValue = ref[childKey];
+            if (
+              (childValue === undefined || childValue === null) &&
+              !isOptional(childDef)
+            ) {
+              errors.push(
+                `Missing required field: ${path}[${idx}].${childKey}`
+              );
+              continue;
+            }
+            const childValidator = getValidator(childDef);
+            if (
+              childValidator &&
+              childValue !== undefined &&
+              childValue !== null
+            ) {
+              const valid = childValidator(childValue);
+              if (!valid)
+                errors.push(
+                  `Invalid value for field: ${path}[${idx}].${childKey}`
+                );
+            }
+          }
+        }
+      });
+    }
+    return;
+  }
+  errors.push(`Field ${path} has unsupported array item type`);
+}
+
+function validateRefField(
+  parentKey: string,
+  key: string,
+  value: any,
+  _def: any,
+  errors: string[]
+) {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    typeof value.type !== "string" ||
+    typeof value.id !== "string"
+  ) {
+    const path = parentKey ? `${parentKey}.${key}` : key;
+    errors.push(`Field ${path} must be { type: string; id: string }`);
+  }
+}
+
+function validateByType(
+  parentKey: string,
+  key: string,
+  value: any,
+  def: any,
+  errors: string[]
+) {
+  const path = parentKey ? `${parentKey}.${key}` : key;
+  switch (def.type) {
+    case "string":
+      return validateStringField(parentKey, key, value, def, errors);
+    case "number":
+      return validateNumberField(parentKey, key, value, def, errors);
+    case "boolean":
+      return validateBooleanField(parentKey, key, value, def, errors);
+    case "object":
+      return validateObjectField(parentKey, key, value, def, errors);
+    case "array":
+      return validateArrayField(parentKey, key, value, def, errors);
+    case "ref":
+      return validateRefField(parentKey, key, value, def, errors);
+    default:
+      errors.push(`Unknown type for field ${path}: ${def.type}`);
+  }
+}
+
 export function createSchema<S extends SchemaShape>(
-  shape: S,
+  _shape: S,
   entityType: string,
   options: SchemaOptions = {
     version: "1.0",
@@ -48,9 +506,9 @@ export function createSchema<S extends SchemaShape>(
   const store = options.table || "";
   const schema: Schema<S> = {
     // 🔗 Define the schema shape
-    shape: {
+    _shape: {
       ...systemFields,
-      ...shape,
+      ..._shape,
     } as S,
 
     // 🔗 Metadata about the schema
@@ -62,294 +520,57 @@ export function createSchema<S extends SchemaShape>(
       const result: any = {};
 
       if (typeof input !== "object" || input === null) {
-        return { valid: false, errors: ["Input must be an object"] };
+        return { valid: false, errors: ["Input must be an object"] } as any;
       }
 
-      for (const key in schema.shape) {
-        const fieldDef = schema.shape[key];
+      if (!(input as any).type || !(input as any).version) {
+        (input as any).type = entityType;
+        (input as any).version = version;
+      }
+
+      for (const key in schema._shape) {
+        const def = schema._shape[key];
         const value = (input as any)[key];
 
-        // Guard against missing field definitions to satisfy TypeScript
-        if (!fieldDef) {
+        if (!def) {
           errors.push(`Field definition missing for: ${key}`);
           continue;
         }
 
-        if (value === undefined || value === null) {
-          if (!(fieldDef.optional ?? false)) {
-            errors.push(`Missing required field: ${key}`);
-          }
-          continue;
-        }
+        // 1) Required
+        const { missing } = checkMissingRequired("", key, value, def, errors);
+        if (missing) continue;
 
-        // Immutable check
-        if (
-          fieldDef.isImmutable &&
-          existing &&
-          existing[key] !== undefined &&
-          value !== existing[key]
-        ) {
-          errors.push(`Field is immutable: ${key}`);
-          continue;
-        }
+        // 2) Immutable
+        const { immutableViolation } = checkImmutable(
+          "",
+          key,
+          value,
+          def,
+          existing,
+          errors
+        );
+        if (immutableViolation) continue;
 
-        // PII classification awareness (optional validation)
-        // PII enforcement
-        if (
-          fieldDef._pii?.classification === "high" &&
-          fieldDef.isRequired === true
-        ) {
-          const missing = value === undefined || value === null || value === "";
-          if (missing) {
-            const msg = `High PII field must not be empty: ${key}`;
-            if (
-              options.piiEnforcement === "strict" ||
-              !options.piiEnforcement
-            ) {
-              errors.push(msg);
-            } else if (options.piiEnforcement === "warn") {
-              console.warn(`WARN (PII Enforcement): ${msg}`);
-            }
-            // If "none" — do nothing
-            if (
-              options.piiEnforcement !== "none" &&
-              options.piiEnforcement !== "warn"
-            ) {
-              continue; // prevent adding invalid value
-            }
-          }
-        }
-        // Validator check
-        if (fieldDef.validator && value !== undefined && value !== null) {
-          const valid = fieldDef.validator(value);
-          if (!valid) {
-            errors.push(`Invalid value for field: ${key}`);
-            continue;
-          }
-        }
+        // 3) PII enforcement (may short-circuit)
+        const { shortCircuit } = enforcePII(
+          "",
+          key,
+          value,
+          def,
+          options,
+          errors
+        );
+        if (shortCircuit) continue;
 
-        switch (fieldDef.type) {
-          case "string":
-            if (typeof value !== "string")
-              errors.push(`Field ${key} must be string`);
-            else {
-              const enumValues = (fieldDef as any).enum;
-              if (Array.isArray(enumValues)) {
-                const enumError = validateEnum(key, value, enumValues);
-                if (enumError) errors.push(enumError);
-              }
-            }
-            break;
-          case "number":
-            if (typeof value !== "number")
-              errors.push(`Field ${key} must be number`);
-            break;
-          case "boolean":
-            if (typeof value !== "boolean")
-              errors.push(`Field ${key} must be boolean`);
-            break;
-          case "object":
-            if (
-              typeof value !== "object" ||
-              value === null ||
-              Array.isArray(value)
-            ) {
-              errors.push(`Field ${key} must be object`);
-            } else if (fieldDef.shape) {
-              for (const [childKey, childDef] of Object.entries(
-                fieldDef.shape
-              ) as [string, FieldBuilder<any>][]) {
-                const childValue = value[childKey];
-                if (
-                  (childValue === undefined || childValue === null) &&
-                  !childDef.optional
-                ) {
-                  errors.push(`Missing required field: ${key}.${childKey}`);
-                  continue;
-                }
-                if (
-                  childDef.validator &&
-                  childValue !== undefined &&
-                  childValue !== null
-                ) {
-                  const valid = childDef.validator(childValue);
-                  if (!valid) {
-                    errors.push(`Invalid value for field: ${key}.${childKey}`);
-                  }
-                }
-                // Recursively validate nested object shapes
-                if (
-                  childDef.type === "object" &&
-                  childDef.shape &&
-                  childValue !== undefined &&
-                  childValue !== null
-                ) {
-                  // Call validate recursively for nested objects
-                  // We can use similar logic as above, but for brevity, call the same logic recursively:
-                  const nestedErrors: string[] = [];
-                  for (const [grandChildKey, grandChildDef] of Object.entries(
-                    childDef.shape
-                  ) as [string, FieldBuilder<any>][]) {
-                    const grandChildValue = childValue[grandChildKey];
-                    if (
-                      (grandChildValue === undefined ||
-                        grandChildValue === null) &&
-                      !grandChildDef.optional
-                    ) {
-                      nestedErrors.push(
-                        `Missing required field: ${key}.${childKey}.${grandChildKey}`
-                      );
-                      continue;
-                    }
-                    if (
-                      grandChildDef.validator &&
-                      grandChildValue !== undefined &&
-                      grandChildValue !== null
-                    ) {
-                      const valid = grandChildDef.validator(grandChildValue);
-                      if (!valid) {
-                        nestedErrors.push(
-                          `Invalid value for field: ${key}.${childKey}.${grandChildKey}`
-                        );
-                      }
-                    }
-                  }
-                  if (nestedErrors.length > 0) {
-                    errors.push(...nestedErrors);
-                  }
-                }
-              }
-            }
-            break;
-          case "array":
-            if (!Array.isArray(value)) {
-              errors.push(`Field ${key} must be an array`);
-            } else if (fieldDef.itemType?.type === "string") {
-              if (!value.every((v) => typeof v === "string")) {
-                errors.push(`Field ${key} must be string[]`);
-              } else {
-                const enumValues = (fieldDef.itemType as any)?.enum;
-                if (Array.isArray(enumValues)) {
-                  const enumError = validateEnum(key, value, enumValues);
-                  if (enumError) errors.push(enumError);
-                }
-              }
-            } else if (fieldDef.itemType?.type === "number") {
-              if (!value.every((v) => typeof v === "number")) {
-                errors.push(`Field ${key} must be number[]`);
-              }
-            } else if (fieldDef.itemType?.type === "boolean") {
-              if (!value.every((v) => typeof v === "boolean")) {
-                errors.push(`Field ${key} must be boolean[]`);
-              }
-            } else if (fieldDef.itemType?.type === "object") {
-              if (
-                !value.every(
-                  (v) =>
-                    typeof v === "object" && v !== null && !Array.isArray(v)
-                )
-              ) {
-                errors.push(`Field ${key} must be object[]`);
-              } else if (fieldDef.itemType.shape) {
-                value.forEach((item, idx) => {
-                  for (const [childKey, childDef] of Object.entries(
-                    fieldDef.itemType!.shape!
-                  )) {
-                    const childValue = item[childKey];
-                    if (
-                      (childValue === undefined || childValue === null) &&
-                      !childDef.optional
-                    ) {
-                      errors.push(
-                        `Missing required field: ${key}[${idx}].${childKey}`
-                      );
-                      continue;
-                    }
-                    if (
-                      childDef.validator &&
-                      childValue !== undefined &&
-                      childValue !== null
-                    ) {
-                      const valid = childDef.validator(childValue);
-                      if (!valid) {
-                        errors.push(
-                          `Invalid value for field: ${key}[${idx}].${childKey}`
-                        );
-                      }
-                    }
-                  }
-                });
-              }
-            } else if (fieldDef.itemType?.type === "ref") {
-              const expectedType = (fieldDef.itemType as any).refType;
-              value.forEach((ref, idx) => {
-                if (
-                  !ref ||
-                  typeof ref !== "object" ||
-                  ref === null ||
-                  typeof ref.type !== "string" ||
-                  typeof ref.id !== "string" ||
-                  (expectedType && ref.type !== expectedType)
-                ) {
-                  errors.push(
-                    `Field ${key}[${idx}] must be a reference object with type: ${expectedType}`
-                  );
-                }
-              });
-              // If the ref also defines a shape, validate recursively
-              if ((fieldDef.itemType as any).shape) {
-                value.forEach((ref, idx) => {
-                  if (ref && typeof ref === "object" && ref !== null) {
-                    for (const [childKey, childDef] of Object.entries(
-                      fieldDef.shape ?? {}
-                    ) as [string, FieldBuilder<any>][]) {
-                      const childValue = ref[childKey];
-                      if (
-                        (childValue === undefined || childValue === null) &&
-                        !childDef.optional
-                      ) {
-                        errors.push(
-                          `Missing required field: ${key}[${idx}].${childKey}`
-                        );
-                        continue;
-                      }
-                      if (
-                        childDef.validator &&
-                        childValue !== undefined &&
-                        childValue !== null
-                      ) {
-                        const valid = childDef.validator(childValue);
-                        if (!valid) {
-                          errors.push(
-                            `Invalid value for field: ${key}[${idx}].${childKey}`
-                          );
-                        }
-                      }
-                    }
-                  }
-                });
-              }
-            } else {
-              errors.push(`Field ${key} has unsupported array item type`);
-            }
-            break;
-          // 🚀 NEW: validate ref
-          case "ref":
-            if (
-              typeof value !== "object" ||
-              value === null ||
-              typeof value.type !== "string" ||
-              typeof value.id !== "string"
-            ) {
-              errors.push(`Field ${key} must be { type: string; id: string }`);
-            }
-            break;
-          default:
-            errors.push(
-              `Unknown type for field ${key}: ${(fieldDef as any).type}`
-            );
-        }
+        // 4) Custom validator
+        const { invalid } = runCustomValidator("", key, value, def, errors);
+        if (invalid) continue;
 
+        // 5) Type-specific validation
+        validateByType("", key, value, def, errors);
+
+        // Assign value regardless; storage transforms happen elsewhere
         result[key] = value;
       }
 
@@ -387,7 +608,7 @@ export function createSchema<S extends SchemaShape>(
       validatorContext.visited.add(entityKey);
       log?.(`Validating composition for entity ${entityKey}`);
 
-      for (const [key, def] of Object.entries(schema.shape)) {
+      for (const [key, def] of Object.entries(schema._shape)) {
         // NEW: skip if not in onlyFields
         if (options.onlyFields && !options.onlyFields.includes(key)) {
           log?.(`Skipping field ${key} (not in onlyFields)`);
@@ -457,8 +678,8 @@ export function createSchema<S extends SchemaShape>(
       hashFn: (value: any) => string
     ): Record<string, any> {
       const result: any = {};
-      for (const key in shape) {
-        const field = shape[key];
+      for (const key in _shape) {
+        const field = _shape[key];
         if (!field) continue;
         const value = input[key];
 
@@ -478,8 +699,8 @@ export function createSchema<S extends SchemaShape>(
       decryptFn: (value: string) => any
     ): Record<string, any> {
       const result: any = {};
-      for (const key in shape) {
-        const field = shape[key];
+      for (const key in _shape) {
+        const field = _shape[key];
         if (!field) continue;
 
         if (field._pii?.action === "encrypt") {
@@ -496,8 +717,8 @@ export function createSchema<S extends SchemaShape>(
       pseudonymFn: (value: any) => string
     ): Record<string, any> {
       const output: any = {};
-      for (const key in shape) {
-        const field = shape[key];
+      for (const key in _shape) {
+        const field = _shape[key];
         if (!field) continue;
         const value = data[key];
 
@@ -521,8 +742,8 @@ export function createSchema<S extends SchemaShape>(
     }> {
       const piiFields: Array<any> = [];
 
-      for (const key in shape) {
-        const field = shape[key];
+      for (const key in _shape) {
+        const field = _shape[key];
         if (!field) continue;
         if (field._pii && field._pii.classification !== "none") {
           piiFields.push({
@@ -541,8 +762,8 @@ export function createSchema<S extends SchemaShape>(
     scrubPiiForDelete(stored: Record<string, any>): Record<string, any> {
       const result: any = { ...stored };
 
-      for (const key in shape) {
-        const field = shape[key];
+      for (const key in _shape) {
+        const field = _shape[key];
         if (!field) continue;
 
         if (field._pii?.action === "encrypt") {
@@ -560,13 +781,13 @@ export function createSchema<S extends SchemaShape>(
 
     describe() {
       const description: Record<string, any> = {};
-      for (const [key, def] of Object.entries(schema.shape)) {
+      for (const [key, def] of Object.entries(schema._shape)) {
         description[key] = {
           type: def.type,
           optional: !!def.optional,
           description: def._description ?? "",
           version: def._version ?? "",
-          enum: (def as any).enum ?? undefined,
+          enum: getEnumValues(def as any),
           refType: (def as any).refType ?? undefined,
           pii: def._pii ?? undefined,
         };
