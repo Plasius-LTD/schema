@@ -1,7 +1,7 @@
 import { describe, it } from "vitest";
 import { createSchema } from "../src/schema.js";
 import { field } from "../src/field.js";
-import { expectValid, expectInvalid } from "./test-utils";
+import { expectValid, expectInvalid } from "./test-utils.js";
 
 /**
  * Full coverage test titles mapped to validator error branches.
