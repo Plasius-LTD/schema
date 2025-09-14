@@ -22,6 +22,8 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org/
+          node-version-file: '.nvmrc'
+          cache: 'npm'
 
       - name: Install deps (CI)
         run: npm ci
