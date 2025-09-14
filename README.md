@@ -23,6 +23,20 @@ npm install @plasius/schema
 
 ---
 
+## Node.js Version
+
+This project uses Node.js **22** by default. The version is pinned in the [`.nvmrc`](./.nvmrc) file.
+
+If you use [nvm](https://github.com/nvm-sh/nvm), simply run:
+
+```bash
+nvm use
+```
+
+This ensures your local development environment matches the version used in CI/CD.
+
+---
+
 ## Usage Example
 
 ```js
