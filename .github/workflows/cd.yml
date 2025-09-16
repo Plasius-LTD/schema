@@ -38,7 +38,7 @@ jobs:
           NEW_VER=$(npm version patch -m "chore: release v%s [skip ci]")
           echo "New version: $NEW_VER"
           git push --follow-tags
-
+          
           # Expose tag (vX.Y.Z) and version (X.Y.Z) for later steps
           VER_NO_V=${NEW_VER#v}
           echo "tag=$NEW_VER" >> "$GITHUB_OUTPUT"
@@ -51,6 +51,89 @@ jobs:
           else
             echo "flags=--access public" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Update CHANGELOG.md (move Unreleased to new version)
+        env:
+          VERSION: ${{ steps.pkg.outputs.version }}
+          TAG: ${{ steps.pkg.outputs.tag }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          FILE="CHANGELOG.md"
+          if [ ! -f "$FILE" ]; then
+            echo "No CHANGELOG.md found; skipping changelog update."
+            exit 0
+          fi
+
+          DATE=$(date -u +%Y-%m-%d)
+          VERSION_LINE="## [${VERSION}] - ${DATE}"
+
+          # Identify Unreleased block boundaries
+          UNREL_START=$(grep -n '^## \[Unreleased\]' "$FILE" | cut -d: -f1 || true)
+          if [ -z "$UNREL_START" ]; then
+            echo "No '## [Unreleased]' section found; skipping changelog update."
+            exit 0
+          fi
+          NEXT_HDR=$(awk 'NR>'"$UNREL_START"' && /^## \[/{print NR; exit}' "$FILE")
+          if [ -z "$NEXT_HDR" ]; then
+            NEXT_HDR=$(wc -l < "$FILE")
+            NEXT_HDR=$((NEXT_HDR+1))
+          fi
+
+          # Extract sections
+          HEADER=$(sed -n "1,${UNREL_START}p" "$FILE")
+          UNREL_CONTENT=$(sed -n "$((UNREL_START+1)),$((NEXT_HDR-1))p" "$FILE")
+          TAIL=$(sed -n "${NEXT_HDR},$p" "$FILE")
+
+          # Prepare new Unreleased template (Keep a Changelog style) without tabs/indent issues
+          NEW_UNRELEASED=$(printf '%s\n' \
+            '## [Unreleased]' \
+            '- **Added**' \
+            '  - (placeholder)' \
+            '' \
+            '- **Changed**' \
+            '  - (placeholder)' \
+            '' \
+            '- **Fixed**' \
+            '  - (placeholder)' \
+            '' \
+            '- **Security**' \
+            '  - (placeholder)')
+
+          # Build the new CHANGELOG content
+          TMP_FILE=$(mktemp)
+          {
+            printf "%s\n" "$HEADER"
+            printf "%s\n\n" "$NEW_UNRELEASED"
+            printf "%s\n" "$VERSION_LINE"
+            # If Unreleased was empty, at least add a placeholder so the section isn't blank
+            if [ -z "$(echo "$UNREL_CONTENT" | tr -d '\n' | tr -d '[:space:]')" ]; then
+              printf "### Changed\n- (no notable changes)\n\n"
+            else
+              printf "%s\n" "$UNREL_CONTENT"
+              # Ensure a trailing newline after the inserted section
+              printf "\n"
+            fi
+            printf "%s\n" "$TAIL"
+          } > "$TMP_FILE"
+
+          mv "$TMP_FILE" "$FILE"
+
+          # Update bottom compare links
+          # Update [Unreleased] compare to start at v${VERSION}
+          COMPARE_URL="https://github.com/${GITHUB_REPOSITORY}/compare/v${VERSION}...HEAD"
+          sed -E -i.bak "s|^\[Unreleased\]: .*|[Unreleased]: ${COMPARE_URL}|" "$FILE" || true
+          rm -f "$FILE.bak"
+
+          # Append a link for the new version if not present
+          if ! grep -q "^\[${VERSION}\]:" "$FILE"; then
+            echo "[${VERSION}]: https://github.com/${GITHUB_REPOSITORY}/releases/tag/v${VERSION}" >> "$FILE"
+          fi
+
+          git add "$FILE"
+          git commit -m "docs(changelog): release v${VERSION}"
+          git push
 
       - name: Create GitHub Release from tag (first-party)
         env:
