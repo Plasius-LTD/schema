@@ -13,10 +13,10 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - (placeholder) Add new validators, field helpers, or PII utilities here.
 
 - **Changed**
-  - (placeholder)
+  - ./src/schema.ts Added comments defining functionality on all externally facing functions.
 
 - **Fixed**
-  - (placeholder)
+  - ./src/schema.ts Validation no longer mutates the input, internal system fields are set only on result if not previously present.
 
 - **Security**
   - (placeholder)

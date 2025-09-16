@@ -501,11 +501,6 @@ export function createSchema<S extends SchemaShape>(
         return { valid: false, errors: ["Input must be an object"] } as any;
       }
 
-      if (!(input as any).type || !(input as any).version) {
-        (input as any).type = entityType;
-        (input as any).version = version;
-      }
-
       for (const key in schema._shape) {
         const def = schema._shape[key];
         const value = (input as any)[key];
@@ -553,6 +548,12 @@ export function createSchema<S extends SchemaShape>(
         result[key] = value;
       }
 
+      // Ensure system fields are set correctly
+      if (!result.type || !result.version) {
+        result.type = entityType;
+        result.version = version;
+      }
+
       if (errors.length === 0 && options.schemaValidator) {
         const castValue = result as Infer<S>;
         if (!options.schemaValidator(castValue)) {
@@ -570,7 +571,28 @@ export function createSchema<S extends SchemaShape>(
     // specific validator for a schema to allow conditional validation
     schemaValidator: options.schemaValidator!, // <== expose it here!
 
-    // 🔗 Validate composition (references) recursively
+    /**
+     * Recursively validates entity references defined in this schema.
+     *
+     * Traverses fields of type `ref` and arrays of `ref` and resolves each target
+     * entity using the provided `resolveEntity` function. When `autoValidate` is
+     * enabled (default) and the field's `refPolicy` is `eager`, the referenced
+     * entity's schema is fetched and validated via `validateComposition` up to
+     * `maxDepth` levels.
+     *
+     * Skips fields not listed in `onlyFields` when provided. Prevents cycles via
+     * a `visited` set in `validatorContext`.
+     *
+     * @param entity The root entity to validate (must include `type` and `id`).
+     * @param options Options controlling traversal and resolution behavior.
+     * @param options.resolveEntity Function to resolve a referenced entity by type and id.
+     * @param options.validatorContext Internal context (visited set) to prevent cycles.
+     * @param options.maxDepth Maximum depth for recursive validation (default: 5).
+     * @param options.onlyFields Optional whitelist of field names to validate.
+     * @param options.log Optional logger for traversal/debug output.
+     *
+     * @throws Error if a broken reference is encountered (target cannot be resolved).
+     */
     async validateComposition(entity, options) {
       const {
         resolveEntity,
@@ -643,6 +665,11 @@ export function createSchema<S extends SchemaShape>(
       }
     },
 
+    /**
+     * Returns the configured table name for this schema.
+     *
+     * @throws Error if no store/table name has been defined for this schema.
+     */
     tableName(): string {
       if (!store || store === "") {
         throw new Error("Store is not defined for this schema");
@@ -650,7 +677,15 @@ export function createSchema<S extends SchemaShape>(
       return store;
     },
 
-    // 🔒 Auto-prepare for storage (encrypt/hash PII)
+    /**
+     * Transforms an input object for persistence by applying PII protection
+     * according to field annotations (e.g., encryption and hashing).
+     *
+     * @param input The raw entity data.
+     * @param encryptFn Function used to encrypt sensitive values.
+     * @param hashFn Function used to hash sensitive values.
+     * @returns A new object safe to store.
+     */
     prepareForStorage(
       input: Record<string, any>,
       encryptFn: (value: any) => string,
@@ -659,6 +694,14 @@ export function createSchema<S extends SchemaShape>(
       return piiPrepareForStorage(_shape, input, encryptFn, hashFn);
     },
 
+    /**
+     * Reverses storage transformations for read paths (e.g., decrypts values)
+     * according to PII annotations, returning a consumer-friendly object.
+     *
+     * @param stored Data retrieved from storage.
+     * @param decryptFn Function used to decrypt values that were encrypted on write.
+     * @returns A new object suitable for application consumption.
+     */
     prepareForRead(
       stored: Record<string, any>,
       decryptFn: (value: string) => any
@@ -666,7 +709,14 @@ export function createSchema<S extends SchemaShape>(
       return piiPrepareForRead(_shape, stored, decryptFn);
     },
 
-    // 🔍 Sanitize for logging (redact/pseudonymize PII)
+    /**
+     * Produces a log-safe copy of the provided data by redacting or pseudonymizing
+     * PII fields in accordance with field annotations.
+     *
+     * @param data Arbitrary data to sanitize for logging.
+     * @param pseudonymFn Function producing stable pseudonyms for sensitive values.
+     * @returns A copy safe to emit to logs.
+     */
     sanitizeForLog(
       data: Record<string, any>,
       pseudonymFn: (value: any) => string
@@ -674,6 +724,10 @@ export function createSchema<S extends SchemaShape>(
       return piiSanitizeForLog(_shape, data, pseudonymFn);
     },
 
+    /**
+     * Returns a list of fields annotated with PII metadata for auditing purposes.
+     * Each entry includes classification, required action, and optional log policy.
+     */
     getPiiAudit(): Array<{
       field: string;
       classification: PIIClassification;
@@ -684,10 +738,21 @@ export function createSchema<S extends SchemaShape>(
       return piiGetPiiAudit(_shape);
     },
 
+    /**
+     * Produces a copy of stored data suitable for data deletion flows by scrubbing
+     * or blanking PII per field annotations.
+     *
+     * @param stored Data as persisted.
+     * @returns A copy with PII removed or neutralized for deletion.
+     */
     scrubPiiForDelete(stored: Record<string, any>): Record<string, any> {
       return piiScrubPiiForDelete(_shape, stored);
     },
 
+    /**
+     * Returns a normalized description of the schema suitable for documentation
+     * or UI rendering (type, optionality, enum values, PII flags, etc.).
+     */
     describe() {
       const description: Record<string, any> = {};
       for (const [key, def] of Object.entries(schema._shape)) {
@@ -715,19 +780,24 @@ export function createSchema<S extends SchemaShape>(
   return schema;
 }
 
-// 🔗 Retrieve a previously registered schema globally
+/**
+ * Retrieves a previously registered schema by its `entityType` from the
+ * in-process global schema registry.
+ */
 export function getSchemaForType(type: string): Schema<any> | undefined {
   return globalSchemaRegistry.get(type);
 }
 
-// 🔗 Retrieve all registered schemas globally
+/**
+ * Returns all schemas registered in the in-process global registry.
+ */
 export function getAllSchemas(): Schema<any>[] {
   return Array.from(globalSchemaRegistry.values());
 }
 
 /**
- * Renders a schema description to a simplified frontend-consumable format.
- * This can be used in UIs for schema explorers, documentation, or admin tools.
+ * Renders a schema into a simplified descriptor for front-end consumption.
+ * Intended for documentation and admin tooling rather than validation.
  */
 export function renderSchemaDescription(
   schema: Schema<any>
