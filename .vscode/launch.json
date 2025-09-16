@@ -6,7 +6,7 @@
       "request": "launch",
       "name": "Debug Vitest",
       "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
-      "args": ["run", "--dir", "tests"],
+      "args": ["run"],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "skipFiles": ["<node_internals>/**"]

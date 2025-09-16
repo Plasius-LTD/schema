@@ -500,10 +500,14 @@ export function createSchema<S extends SchemaShape>(
       if (typeof input !== "object" || input === null) {
         return { valid: false, errors: ["Input must be an object"] } as any;
       }
+      // Work on a non-mutating copy that includes system defaults for first-time objects
+      const working: Record<string, any> = { ...(input as any) };
+      if (working.type == null) working.type = entityType;
+      if (working.version == null) working.version = version;
 
       for (const key in schema._shape) {
         const def = schema._shape[key];
-        const value = (input as any)[key];
+        const value = working[key];
 
         if (!def) {
           errors.push(`Field definition missing for: ${key}`);
@@ -548,11 +552,6 @@ export function createSchema<S extends SchemaShape>(
         result[key] = value;
       }
 
-      // Ensure system fields are set correctly
-      if (!result.type || !result.version) {
-        result.type = entityType;
-        result.version = version;
-      }
 
       if (errors.length === 0 && options.schemaValidator) {
         const castValue = result as Infer<S>;
