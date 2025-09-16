@@ -84,7 +84,7 @@ jobs:
           # Extract sections
           HEADER=$(sed -n "1,${UNREL_START}p" "$FILE")
           UNREL_CONTENT=$(sed -n "$((UNREL_START+1)),$((NEXT_HDR-1))p" "$FILE")
-          TAIL=$(sed -n "${NEXT_HDR},$p" "$FILE")
+          TAIL=$(sed -n "${NEXT_HDR},\$p" "$FILE")
 
           # Prepare new Unreleased template (Keep a Changelog style) without tabs/indent issues
           NEW_UNRELEASED=$(printf '%s\n' \
