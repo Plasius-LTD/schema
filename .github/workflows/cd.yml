@@ -2,8 +2,6 @@ name: CD (Publish to npm)
 
 on:
   workflow_dispatch:
-  release:
-    types: [published]
 
 permissions:
   contents: write
@@ -12,7 +10,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    environment: npm
+    environment: production
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,12 +39,32 @@ jobs:
           echo "New version: $NEW_VER"
           git push --follow-tags
 
+          # Expose tag (vX.Y.Z) and version (X.Y.Z) for later steps
+          VER_NO_V=${NEW_VER#v}
+          echo "tag=$NEW_VER" >> "$GITHUB_OUTPUT"
+          echo "version=$VER_NO_V" >> "$GITHUB_OUTPUT"
+
           NAME=$(node -p "require('./package.json').name")
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
           if npm view "$NAME" version >/dev/null 2>&1; then
             echo "flags=" >> "$GITHUB_OUTPUT"
           else
             echo "flags=--access public" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release from tag (first-party)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.pkg.outputs.tag }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; skipping creation."
+          else
+            gh release create "$TAG" \
+              --title "Release $TAG" \
+              --generate-notes \
+              --latest
           fi
 
       - name: Publish
