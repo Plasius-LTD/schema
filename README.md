@@ -48,7 +48,7 @@ This ensures your local development environment matches the version used in CI/C
 We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
 
 - [Code of Conduct](./CODE_OF_CONDUCT.md)
-- [Contributor License Agreement](./CLA.md)
+- [Contributor License Agreement](./legal/CLA.md)
 
 ---
 
