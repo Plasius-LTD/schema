@@ -1,6 +1,6 @@
 # Individual Contributor License Agreement (CLA)
 
-**Project:** Intuitive Purchases (Plasius LTD)  
+**Project:** @plasius/schema (Plasius LTD)  
 **Version:** 1.0 — 2025‑09‑12  
 **Contact:** [contributors@plasius.co.uk](mailto:contributors@plasius.co.uk)
 
@@ -10,7 +10,7 @@
 
 - **"You"** (or **"Contributor"**) means the individual signing this CLA and submitting Contributions to the Project.
 - **"Contribution"** means any original work of authorship, including code, documentation, data, designs, or feedback that You submit to the Project in any form (e.g., pull request, issue comment, email, file upload).
-- **"Project"** means the Intuitive Purchases repositories and related materials owned or managed by **Plasius LTD**.
+- **"Project"** means the @plasius/schema repositories and related materials owned or managed by **Plasius LTD**.
 
 ## 2. Copyright License Grant
 

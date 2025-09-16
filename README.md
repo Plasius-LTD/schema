@@ -9,8 +9,6 @@
 
 Entity definition & validation helpers for the Plasius ecosystem.
 
-This package is part of the **Plasius LTD** selective open-source strategy. For more on our approach, see [ADR-0013: Selective Open Source](https://github.com/plasius/plasius/blob/main/docs/architecture/adr/ADR-0013-selective-open-source.md). This package is maintained as open source to foster community trust and enable integration, while the core Plasius platform remains proprietary.
-
 Apache-2.0. ESM + CJS builds. TypeScript types included.
 
 ---
