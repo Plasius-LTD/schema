@@ -28,55 +28,12 @@ jobs:
       - name: Test (coverage)
         run: npm run test -- --coverage
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage/lcov.info
-          flags: unittests
-          fail_ci_if_error: true
-
-      - name: Build
-        run: npm run build --if-present
-
-      - name: Generate SBOM (CycloneDX)
-        run: npm sbom --sbom-format=cyclonedx --sbom-type=library --omit dev > sbom.cdx.json
-
-      - name: Attest SBOM (GitHub Artifact Attestations)
-        uses: actions/attest-build-provenance@v3
-        with:
-          subject-path: sbom.cdx.json
-
-      - name: Bump version & decide publish flags
-        id: pkg
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          NEW_VER=$(npm version patch -m "chore: release v%s [skip ci]")
-          echo "New version: $NEW_VER"
-          git push --follow-tags
-          
-          # Expose tag (vX.Y.Z) and version (X.Y.Z) for later steps
-          VER_NO_V=${NEW_VER#v}
-          echo "tag=$NEW_VER" >> "$GITHUB_OUTPUT"
-          echo "version=$VER_NO_V" >> "$GITHUB_OUTPUT"
-
-          NAME=$(node -p "require('./package.json').name")
-          echo "name=$NAME" >> "$GITHUB_OUTPUT"
-          if npm view "$NAME" version >/dev/null 2>&1; then
-            echo "flags=" >> "$GITHUB_OUTPUT"
-          else
-            echo "flags=--access public" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Update CHANGELOG.md (move Unreleased to new version)
         env:
           VERSION: ${{ steps.pkg.outputs.version }}
           TAG: ${{ steps.pkg.outputs.tag }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          verbose: true
         run: |
           set -euo pipefail
 
@@ -143,8 +100,8 @@ jobs:
           # Update bottom compare links
           # Update [Unreleased] compare to start at v${VERSION}
           COMPARE_URL="https://github.com/${GITHUB_REPOSITORY}/compare/v${VERSION}...HEAD"
-          sed -E -i.bak "s|^\[Unreleased\]: .*|[Unreleased]: ${COMPARE_URL}|" "$FILE" || true
-          rm -f "$FILE.bak"
+          awk -v repl="[Unreleased]: ${COMPARE_URL}" 'BEGIN{OFS=FS} { if ($0 ~ /^\[Unreleased\]: /) { print repl } else { print } }' "$FILE" > "$FILE.tmp"
+          mv "$FILE.tmp" "$FILE"
 
           # Append a link for the new version if not present
           if ! grep -q "^\[${VERSION}\]:" "$FILE"; then
@@ -154,6 +111,50 @@ jobs:
           git add "$FILE"
           git commit -m "docs(changelog): release v${VERSION}"
           git push
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+         token: ${{ secrets.CODECOV_TOKEN }}
+         files: ./coverage/lcov.info
+         flags: unittests
+         fail_ci_if_error: true
+
+      - name: Build
+        run: npm run build --if-present
+
+      - name: Generate SBOM (CycloneDX)
+        run: npm sbom --sbom-format=cyclonedx --sbom-type=library --omit dev > sbom.cdx.json
+
+      - name: Attest SBOM (GitHub Artifact Attestations)
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: sbom.cdx.json
+
+      - name: Bump version & decide publish flags
+        id: pkg
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          NEW_VER=$(npm version patch -m "chore: release v%s [skip ci]")
+          echo "New version: $NEW_VER"
+          git push --follow-tags
+          
+          # Expose tag (vX.Y.Z) and version (X.Y.Z) for later steps
+          VER_NO_V=${NEW_VER#v}
+          echo "tag=$NEW_VER" >> "$GITHUB_OUTPUT"
+          echo "version=$VER_NO_V" >> "$GITHUB_OUTPUT"
+
+          NAME=$(node -p "require('./package.json').name")
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          if npm view "$NAME" version >/dev/null 2>&1; then
+            echo "flags=" >> "$GITHUB_OUTPUT"
+          else
+            echo "flags=--access public" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Create GitHub Release from tag (first-party)
         env:
