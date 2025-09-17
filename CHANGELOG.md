@@ -9,45 +9,21 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
-- **Added**
-  - (placeholder)
-
-- **Changed**
-  - (placeholder)
-
 - **Fixed**
-  - (placeholder)
+  - CD pipeline reorder fix to restore CHANGELOG.md versions
 
-- **Security**
-  - (placeholder)
-
-## [] - 2025-09-17
+## [1.0.17] - 2025-09-17
 
 - **Added**
   - chore: Code coverage added
 
-- **Changed**
-  - (placeholder)
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
-
 ## [1.0.13] - 2025-09-16
-
-- **Added**
-  - (placeholder) Add new validators, field helpers, or PII utilities here.
 
 - **Changed**
   - ./src/schema.ts Added comments defining functionality on all externally facing functions.
 
 - **Fixed**
   - ./src/schema.ts Validation no longer mutates the input, internal system fields are set only on result if not previously present.
-
-- **Security**
-  - (placeholder)
 
 ---
 
@@ -92,4 +68,4 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 [Unreleased]: https://github.com/Plasius-LTD/schema/compare/v...HEAD
 [1.0.0]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.0
 [1.0.13]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.13
-[]: https://github.com/Plasius-LTD/schema/releases/tag/v
+[1.0.17]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.17
