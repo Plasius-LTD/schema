@@ -6,6 +6,7 @@ on:
 permissions:
   contents: write
   id-token: write # for npm provenance (requires Node 18+ and npm >=9)
+  attestations: write
 
 jobs:
   publish:
@@ -24,8 +25,26 @@ jobs:
       - name: Install deps (CI)
         run: npm ci
 
+      - name: Test (coverage)
+        run: npm run test -- --coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/lcov.info
+          flags: unittests
+          fail_ci_if_error: true
+
       - name: Build
         run: npm run build --if-present
+
+      - name: Generate SBOM (CycloneDX)
+        run: npm sbom --sbom-format=cyclonedx --sbom-type=library --omit dev > sbom.cdx.json
+
+      - name: Attest SBOM (GitHub Artifact Attestations)
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: sbom.cdx.json
 
       - name: Bump version & decide publish flags
         id: pkg
@@ -142,12 +161,18 @@ jobs:
           set -euo pipefail
           TAG="${{ steps.pkg.outputs.tag }}"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG already exists; skipping creation."
+            echo "Release $TAG already exists; uploading SBOM asset."
           else
             gh release create "$TAG" \
               --title "Release $TAG" \
               --generate-notes \
               --latest
+          fi
+          # Upload/overwrite the SBOM asset on the release
+          if [ -f sbom.cdx.json ]; then
+            gh release upload "$TAG" sbom.cdx.json --clobber
+          else
+            echo "No SBOM generated; skipping upload."
           fi
 
       - name: Publish

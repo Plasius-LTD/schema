@@ -6,8 +6,15 @@ export default defineConfig({
     globals: true,
     include: ["tests/**/*.test.{ts,tsx}"],
     coverage: {
+      provider: "v8",
       reporter: ["text", "lcov"],
-      exclude: ["tests/**", "dist/**"],
+      reportsDirectory: "./coverage",
+      exclude: [
+        "tests/**",
+        "dist/**",
+        "**/*.config.{js,ts}",
+        "**/.eslintrc.{js,cjs}",
+      ],
     },
   },
 });
