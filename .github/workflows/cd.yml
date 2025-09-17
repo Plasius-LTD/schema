@@ -108,7 +108,7 @@ jobs:
 
           # Prepare new Unreleased template (Keep a Changelog style) without tabs/indent issues
           NEW_UNRELEASED=$(printf '%s\n' \
-            '## [Unreleased]' \
+            '' \
             '- **Added**' \
             '  - (placeholder)' \
             '' \
@@ -143,8 +143,8 @@ jobs:
           # Update bottom compare links
           # Update [Unreleased] compare to start at v${VERSION}
           COMPARE_URL="https://github.com/${GITHUB_REPOSITORY}/compare/v${VERSION}...HEAD"
-          awk -v repl="[Unreleased]: ${COMPARE_URL}" 'BEGIN{OFS=FS} { if ($0 ~ /^\[Unreleased\]: /) { print repl } else { print } }' "$FILE" > "$FILE.tmp"
-          mv "$FILE.tmp" "$FILE"
+          sed -E -i.bak "s|^\[Unreleased\]: .*|[Unreleased]: ${COMPARE_URL}|" "$FILE" || true
+          rm -f "$FILE.bak"
 
           # Append a link for the new version if not present
           if ! grep -q "^\[${VERSION}\]:" "$FILE"; then
