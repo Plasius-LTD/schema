@@ -62,4 +62,6 @@
 
 ## References
 
+- [Architectural Decision Records (ADR) standard](https://adr.github.io/)
+
 > _Links to docs, benchmarks, discussions, or external resources that influenced this decision_

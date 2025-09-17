@@ -39,3 +39,7 @@ We will build a **schema library** (`@plasius/schema`) that:
 
 - **Do nothing:** Continue defining ad-hoc validation in each package. (Rejected: inconsistent and unsafe.)
 - **Use an existing library (e.g. Zod, Yup, Joi):** These provide schema validation but lack PII auditing integration and may not align with our field-builder pattern. (Rejected for core use, though we may draw inspiration.)
+
+## References
+
+- [Architectural Decision Records (ADR) standard](https://adr.github.io/)
