@@ -17,7 +17,7 @@ describe("schema.ts – validator coverage", () => {
         bad: undefined as any,
       },
       "BadDef",
-      { version: "1.0", piiEnforcement: "strict" }
+      { version: "1.0.0", piiEnforcement: "strict" }
     );
     const r = S.validate({ bad: "anything" });
     expectInvalid(r, "Field definition missing for: bad");
@@ -29,15 +29,15 @@ describe("schema.ts – validator coverage", () => {
       k: field.string().enum(["A", "B", "C"]),
     },
     "StringEnum",
-    { version: "1.0", piiEnforcement: "strict" }
+    { version: "1.0.0", piiEnforcement: "strict" }
   );
 
   const NumberField = createSchema({ n: field.number() }, "NumberField", {
-    version: "1.0",
+    version: "1.0.0",
     piiEnforcement: "strict",
   });
   const BooleanField = createSchema({ b: field.boolean() }, "BooleanField", {
-    version: "1.0",
+    version: "1.0.0",
     piiEnforcement: "strict",
   });
 
@@ -55,23 +55,23 @@ describe("schema.ts – validator coverage", () => {
       }),
     },
     "SimpleObject",
-    { version: "1.0", piiEnforcement: "strict" }
+    { version: "1.0.0", piiEnforcement: "strict" }
   );
 
   const ArrayOfStrings = createSchema(
     { tags: field.array(field.string().enum(["alpha", "beta"])) },
     "ArrayOfStrings",
-    { version: "1.0", piiEnforcement: "strict" }
+    { version: "1.0.0", piiEnforcement: "strict" }
   );
   const ArrayOfNumbers = createSchema(
     { nums: field.array(field.number()) },
     "ArrayOfNumbers",
-    { version: "1.0", piiEnforcement: "strict" }
+    { version: "1.0.0", piiEnforcement: "strict" }
   );
   const ArrayOfBooleans = createSchema(
     { flags: field.array(field.boolean()) },
     "ArrayOfBooleans",
-    { version: "1.0", piiEnforcement: "strict" }
+    { version: "1.0.0", piiEnforcement: "strict" }
   );
 
   const ArrayOfObjects = createSchema(
@@ -85,7 +85,7 @@ describe("schema.ts – validator coverage", () => {
       ),
     },
     "ArrayOfObjects",
-    { version: "1.0", piiEnforcement: "strict" }
+    { version: "1.0.0", piiEnforcement: "strict" }
   );
 
   // 2) Missing required field
@@ -98,7 +98,7 @@ describe("schema.ts – validator coverage", () => {
   it("should fail when immutable field is modified", () => {
     const fixed = field.string().immutable() as any;
     const S = createSchema({ fixed }, "Immutable", {
-      version: "1.0",
+      version: "1.0.0",
       piiEnforcement: "strict",
     });
 
@@ -118,7 +118,7 @@ describe("schema.ts – validator coverage", () => {
     }) as any;
     // required by default (not optional)
     const S = createSchema({ secret }, "PII", {
-      version: "1.0",
+      version: "1.0.0",
       piiEnforcement: "strict",
     });
     const r = S.validate({ secret: "" }); // empty string should trigger strict error
@@ -132,7 +132,7 @@ describe("schema.ts – validator coverage", () => {
         code: field.string().validator((v) => v === "ok"),
       },
       "CustomValidator",
-      { version: "1.0", piiEnforcement: "strict" }
+      { version: "1.0.0", piiEnforcement: "strict" }
     );
     const result = S.validate({ code: "nope" });
     expectInvalid(result, "Invalid value for field: code");
@@ -187,7 +187,7 @@ describe("schema.ts – validator coverage", () => {
         }),
       },
       "ChildValidator",
-      { version: "1.0", piiEnforcement: "strict" }
+      { version: "1.0.0", piiEnforcement: "strict" }
     );
     const result = S.validate({ o: { a: "x" } });
     expectInvalid(result, "Invalid value for field: o.a");
@@ -218,7 +218,7 @@ describe("schema.ts – validator coverage", () => {
         }),
       },
       "GrandChildValidator",
-      { version: "1.0", piiEnforcement: "strict" }
+      { version: "1.0.0", piiEnforcement: "strict" }
     );
     const result = S.validate({ o: { a: "x", nested: { f: true } } });
     expectInvalid(result, "Invalid value for field: o.nested.f");
@@ -293,7 +293,7 @@ describe("schema.ts – validator coverage", () => {
         ),
       },
       "ArrayChildValidator",
-      { version: "1.0", piiEnforcement: "strict" }
+      { version: "1.0.0", piiEnforcement: "strict" }
     );
     const result = S.validate({ items: [{ t: "ok" }] });
     expectInvalid(result, "Invalid value for field: items[0].t");
@@ -303,7 +303,7 @@ describe("schema.ts – validator coverage", () => {
   it("should fail when array item is not a valid ref object (or wrong ref type)", () => {
     const refItem = { type: "ref", refType: "asset" } as any;
     const S = createSchema({ items: field.array(refItem) }, "ArrayRefInvalid", {
-      version: "1.0",
+      version: "1.0.0",
       piiEnforcement: "strict",
     });
     // bad id type (number) and missing/incorrect fields should trigger the message
@@ -322,7 +322,7 @@ describe("schema.ts – validator coverage", () => {
       shape: { region: field.string() },
     } as any;
     const S = createSchema({ items: field.array(refItem) }, "ArrayRefMissing", {
-      version: "1.0",
+      version: "1.0.0",
       piiEnforcement: "strict",
     });
     // Valid ref, but missing required shape field 'region'
@@ -340,7 +340,7 @@ describe("schema.ts – validator coverage", () => {
     const S = createSchema(
       { items: field.array(refItem) },
       "ArrayRefChildValidator",
-      { version: "1.0", piiEnforcement: "strict" }
+      { version: "1.0.0", piiEnforcement: "strict" }
     );
     const r = S.validate({ items: [{ type: "asset", id: "a1", code: "XYZ" }] });
     expectInvalid(r, "Invalid value for field: items[0].code");
@@ -350,7 +350,7 @@ describe("schema.ts – validator coverage", () => {
   it("should fail when array item type is unsupported", () => {
     const weirdItem = { type: "date" } as any;
     const S = createSchema({ xs: field.array(weirdItem) }, "ArrayUnsupported", {
-      version: "1.0",
+      version: "1.0.0",
       piiEnforcement: "strict",
     });
     const r = S.validate({ xs: ["2025-01-01"] });
@@ -361,7 +361,7 @@ describe("schema.ts – validator coverage", () => {
   it("should fail when ref field is not a valid {type,id} object", () => {
     const refDef = { type: "ref" } as any;
     const S = createSchema({ r: refDef }, "SingleRef", {
-      version: "1.0",
+      version: "1.0.0",
       piiEnforcement: "strict",
     });
     const r = S.validate({ r: { type: "asset", id: 42 } }); // id should be string
@@ -372,7 +372,7 @@ describe("schema.ts – validator coverage", () => {
   it("should fail when field type is unknown", () => {
     const unknownDef = { type: "wat" } as any;
     const S = createSchema({ a: unknownDef }, "UnknownType", {
-      version: "1.0",
+      version: "1.0.0",
       piiEnforcement: "strict",
     });
     const r = S.validate({ a: 123 });
@@ -386,7 +386,7 @@ describe("schema.ts – validator coverage", () => {
         a: field.number(),
       },
       "SchemaLevel",
-      { version: "1.0", piiEnforcement: "strict" }
+      { version: "1.0.0", piiEnforcement: "strict" }
     );
 
     // monkey-patch a validator on the schema (if supported by createSchema options)
@@ -399,7 +399,7 @@ describe("schema.ts – validator coverage", () => {
         x: field.string().validator(() => false),
       },
       "SchemaLevel2",
-      { version: "1.0", piiEnforcement: "strict" }
+      { version: "1.0.0", piiEnforcement: "strict" }
     );
     const r2 = S2.validate({ x: "anything" });
     expectInvalid(r2, "Invalid value for field: x");
@@ -466,7 +466,7 @@ describe("schema.ts – validator coverage", () => {
   it("should pass when immutable field remains unchanged compared to existing value", () => {
     const fixed = field.string().immutable() as any;
     const S = createSchema({ fixed }, "ImmutableOK", {
-      version: "1.0",
+      version: "1.0.0",
       piiEnforcement: "strict",
     });
     const existing = { fixed: "A" };
@@ -482,7 +482,7 @@ describe("schema.ts – validator coverage", () => {
       purpose: "pii security test",
     }) as any;
     const S = createSchema({ secret }, "PII_OK", {
-      version: "1.0",
+      version: "1.0.0",
       piiEnforcement: "strict",
     });
     const r = S.validate({ secret: "non-empty" });
@@ -493,7 +493,7 @@ describe("schema.ts – validator coverage", () => {
     const S = createSchema(
       { ok: field.string().validator((v) => v === "ok") },
       "CustomValidatorOK",
-      { version: "1.0", piiEnforcement: "strict" }
+      { version: "1.0.0", piiEnforcement: "strict" }
     );
     const r = S.validate({ ok: "ok" });
     expectValid(r);

@@ -38,9 +38,148 @@ This ensures your local development environment matches the version used in CI/C
 
 ## Usage Example
 
-```js
+### Imports
 
+```ts
+import {
+  // core
+  createSchema,
+  field,
+  getSchemaForType,
+  getAllSchemas
+} from "@plasius/schema";
 ```
+
+### 1) Define fields with the `field()` builder
+
+> Below uses the fluent builder exported via `field`/`field.builder`.
+
+```ts
+const UserFields = {
+  id: field.string().uuid().required().description("Unique user id"),
+  email: field.email().required(),
+  name: field.name().optional(),
+  age: field.number().int().min(0).optional(),
+  roles: field.array(field.string().enum(["admin", "user"]))
+            .default(["user"]).description("RBAC roles"),
+  createdAt: field.dateTimeISO().default(() => new Date()),
+};
+```
+
+Common methods (non‑exhaustive): `.required()`, `.optional()`, `.default(v|fn)`, `.description(text)`, and type‑specific helpers like `.email()`, `.uuid()`, `.min()`, `.max()`, `.enum([...])`.
+
+### 2) Create a **versioned** schema (enforces `type` + `version`)
+
+```ts
+export const UserSchema = createSchema({
+  entityType: "user",
+  version: "1.0.0",
+  fields: UserFields,
+});
+
+// Strongly-typed entity from a schema definition
+export type User = Infer<typeof UserSchema>;
+```
+
+Schemas are discoverable at runtime if you register them during module init:
+
+```ts
+// later in app code
+const s = getSchemaForType("user"); // returns UserSchema
+const all = getAllSchemas(); // Map<string, Map<string, Schema>> or similar
+```
+
+### 3) Validate data against the schema
+
+```ts
+const raw = {
+  type: "user",
+  version: "1.0.0",
+  id: crypto.randomUUID(),
+  email: "alice@example.com",
+};
+
+const result = UserSchemavalidate(raw);
+if (result.valid && result.errors.length == 0) {
+  // result.value is typed as User
+  const user: User = result.value;
+} else {
+  // result.errors: ValidationError[] (path/code/message)
+  console.error(result.errors);
+}
+```
+
+> If your validation layer also exposes a throwing variant (e.g. `validateOrThrow(UserSchema, raw)`), you can use that in places where exceptions are preferred.
+
+### 4) Version enforcement in action
+
+If either `type` or `version` doesn’t match the schema, validation fails.
+
+```ts
+const wrong = { type: "User", version: "2.0.0", id: "123", email: "x@x" };
+const bad = UserSchema.validate(wrong);
+// bad.valid === false; errors will include mismatches for type/version
+```
+
+### 5) Evolving your schema
+
+Keep new versions side‑by‑side and migrate at edges:
+
+```ts
+export const UserV2 = createSchema({
+  entityType: "user",
+  version: "2.0.0",
+  fields: {
+    ...UserFields,
+    displayName: field.string().min(1).max(100).optional(),
+  },
+});
+```
+
+> Write a small migration function in your app to transform `User (1.0.0)` → `User (2.0.0)` where needed.
+
+### 6) Field-level upgrades
+
+The schema supports a new `.upgrade()` method on fields to define field-level upgrade logic. This is useful when tightening restrictions on a field, such as reducing maximum length, strengthening format constraints, or normalizing values, without changing the field’s overall shape.
+
+For example, suppose a `displayName` field previously allowed strings up to 60 characters, but you want to reduce the max length to 55 characters and normalize whitespace by trimming and collapsing spaces. You can define an upgrader function that attempts to fix old values to meet the new constraints:
+
+```ts
+const UserV3Fields = {
+  ...UserFields,
+  displayName: field.string().max(55).optional()
+    .upgrade((oldValue) => {
+      if (typeof oldValue !== "string") {
+        return { ok: false, error: "Expected string" };
+      }
+      // Normalize whitespace: trim and collapse multiple spaces
+      const normalized = oldValue.trim().replace(/\s+/g, " ");
+      if (normalized.length > 55) {
+        return { ok: false, error: "Display name too long after normalization" };
+      }
+      return { ok: true, value: normalized };
+    }),
+};
+
+export const UserV3 = createSchema({
+  entityType: "user",
+  version: "3.0.0",
+  fields: UserV3Fields,
+});
+```
+
+Other typical upgrade strategies include:
+
+- Clamping numeric values to new min/max bounds
+- Remapping enum values to new sets or keys
+- Normalizing whitespace or case in strings
+- Converting deprecated flag values to new formats
+
+During validation, if the entity version is less than the schema version and the field's value fails validation, the upgrader function will be invoked to attempt to transform the old value into a valid new value. If the upgrade succeeds and the transformed value passes validation, the upgraded value is used. If the upgrade fails or the transformed value still does not validate, validation errors will be returned.
+
+**Note:** Field-level upgrades only run when the schema version is greater than the entity version and the field validation initially fails. This provides a convenient way to handle incremental field changes without requiring full schema migrations.
+
+You can still write schema-level migration functions for larger or more complex changes that affect multiple fields or require more extensive transformation logic. Field-level upgrades complement these by handling simpler, localized upgrades directly within the schema definition.
 
 ---
 

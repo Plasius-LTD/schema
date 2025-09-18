@@ -10,13 +10,32 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 ## [Unreleased]
 
 - **Added**
-  - (placeholder)
+  - field().upgrade() function now added to allow upgrades of older data sets to newer data.
+  - min/max/pattern/default FieldBuilder elements added for validation.
+  - Added new validator for language code BCP 47 format.
+  - Added new validator options for ISO DATE TIME filtering to Date or Time or Both
+  - Added new pre-built field() types including PII flags and validators for:
+    - email
+    - phone
+    - url
+    - uuid
+    - dateTimeISO
+    - dateISO
+    - timeISO
+    - richText
+    - generalText
+    - latitude
+    - longitude
+    - version
+    - countryCode
+    - languageCode
+  - New field().xxx tests for the above types.
 
 - **Changed**
-  - (placeholder)
+  - Updated CD Pipeline to accept a new param for version Major, Minor or Patch update
 
 - **Fixed**
-  - (placeholder)
+  - validateISODateTime for dateTime now accepts string matches that might not be the same as the date.toISOString() return value but are still valid ISO Date Time Strings.
 
 - **Security**
   - (placeholder)

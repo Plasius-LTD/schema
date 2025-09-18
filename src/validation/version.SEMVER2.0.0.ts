@@ -4,5 +4,7 @@
  */
 export function validateSemVer(value: unknown): boolean {
   if (typeof value !== "string") return false;
-  return /^(\d+)\.(\d+)\.(\d+)$/.test(value);
+  return /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/.test(
+    value
+  );
 }

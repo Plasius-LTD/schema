@@ -32,7 +32,7 @@ describe("PII log sanitization", () => {
       }),
     },
     "LogSchema",
-    { version: "1.0", piiEnforcement: "strict" }
+    { version: "1.0.0", piiEnforcement: "strict" }
   );
 
   it("should redact, pseudonymize, pass-through, and omit according to logHandling", () => {
@@ -123,7 +123,7 @@ describe("PII log sanitization", () => {
           }),
         },
         "Alt",
-        { version: "1.0", piiEnforcement: "none" }
+        { version: "1.0.0", piiEnforcement: "none" }
       );
       expect(AltSchema.getPiiAudit()).toEqual([
         {

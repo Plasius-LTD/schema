@@ -11,8 +11,21 @@ import {
   scrubPiiForDelete as piiScrubPiiForDelete,
 } from "./pii.js";
 import { FieldBuilder } from "./field.builder.js";
+import { validateSemVer } from "./validation/version.SEMVER2.0.0.js";
 
 const globalSchemaRegistry = new Map<string, Schema<any>>();
+
+function cmpSemver(a: string, b: string): number {
+  const pa = a.split(".").map((n) => parseInt(n, 10));
+  const pb = b.split(".").map((n) => parseInt(n, 10));
+  for (let i = 0; i < 3; i++) {
+    const ai = pa[i] ?? 0;
+    const bi = pb[i] ?? 0;
+    if (ai > bi) return 1;
+    if (ai < bi) return -1;
+  }
+  return 0;
+}
 
 function validateEnum(
   parentKey: string,
@@ -469,7 +482,7 @@ export function createSchema<S extends SchemaShape>(
   _shape: S,
   entityType: string,
   options: SchemaOptions = {
-    version: "1.0",
+    version: "1.0.0",
     table: "",
     schemaValidator: () => true,
     piiEnforcement: "none",
@@ -477,10 +490,10 @@ export function createSchema<S extends SchemaShape>(
 ): Schema<S> {
   const systemFields = {
     type: field.string().immutable().system(),
-    version: field.string().immutable().system(),
+    version: field.string().immutable().system().validator(validateSemVer),
   };
 
-  const version = options.version || "1.0";
+  const version = options.version || "1.0.0";
   const store = options.table || "";
   const schema: Schema<S> = {
     // 🔗 Define the schema shape
@@ -541,17 +554,71 @@ export function createSchema<S extends SchemaShape>(
         );
         if (shortCircuit) continue;
 
-        // 4) Custom validator
-        const { invalid } = runCustomValidator("", key, value, def, errors);
-        if (invalid) continue;
+        // A local validator for this field that returns errors instead of pushing into the outer array
+        const validateField = (val: any): string[] => {
+          const localErrors: string[] = [];
+          const { invalid } = runCustomValidator(
+            "",
+            key,
+            val,
+            def,
+            localErrors
+          );
+          if (!invalid) {
+            validateByType("", key, val, def, localErrors);
+          }
+          return localErrors;
+        };
 
-        // 5) Type-specific validation
-        validateByType("", key, value, def, errors);
+        // First pass validation
+        let fieldValue = value;
+        let fieldErrors = validateField(fieldValue);
 
-        // Assign value regardless; storage transforms happen elsewhere
-        result[key] = value;
+        // Attempt upgrade if invalid and an upgrader exists and entity is older than schema
+        const entityFrom = String(working.version ?? "0.0.0");
+        const entityTo = String(version);
+        const fieldTo = String((def as any)._version ?? entityTo);
+        const hasUpgrader = typeof (def as any)._upgrade === "function";
+
+        if (
+          fieldErrors.length > 0 &&
+          hasUpgrader &&
+          cmpSemver(entityFrom, entityTo) < 0
+        ) {
+          const up = (def as any)._upgrade as (
+            value: any,
+            ctx: {
+              entityFrom: string;
+              entityTo: string;
+              fieldTo: string;
+              fieldName: string;
+            }
+          ) => { ok: boolean; value?: any; error?: string };
+
+          const res = up(fieldValue, {
+            entityFrom,
+            entityTo,
+            fieldTo,
+            fieldName: key,
+          });
+          if (res && res.ok) {
+            fieldValue = res.value;
+            fieldErrors = validateField(fieldValue);
+          } else {
+            fieldErrors.push(
+              res?.error ||
+                `Failed to upgrade field ${key} from v${entityFrom} to v${entityTo}`
+            );
+          }
+        }
+
+        result[key] = fieldValue;
+        // Apply or record errors
+        if (fieldErrors.length !== 0) {
+          errors.push(...fieldErrors);
+          continue;
+        }
       }
-
 
       if (errors.length === 0 && options.schemaValidator) {
         const castValue = result as Infer<S>;

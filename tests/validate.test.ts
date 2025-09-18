@@ -16,7 +16,7 @@ const userSchema = createSchema(
     characters: field.array(field.ref("character")),
   },
   "user",
-  { version: "1.0", piiEnforcement: "strict" }
+  { version: "1.0.0", piiEnforcement: "strict" }
 );
 
 // Example of a compiled/standalone validator function consumers might use
@@ -27,7 +27,7 @@ describe("validate() with field()-based schema", () => {
   it("validates a correct object", () => {
     const input = {
       type: "user",
-      version: "1.0",
+      version: "1.0.0",
       name: "Alice",
       bestFriend: { type: "user", id: "user-123" },
       characters: [{ type: "character", id: "char-1" }],
@@ -41,7 +41,7 @@ describe("validate() with field()-based schema", () => {
   it("detects missing required field (name)", () => {
     const input = {
       type: "user",
-      version: "1.0",
+      version: "1.0.0",
       bestFriend: { type: "user", id: "user-123" },
       characters: [],
     };
@@ -54,7 +54,7 @@ describe("validate() with field()-based schema", () => {
   it("detects invalid ref shape for bestFriend", () => {
     const input = {
       type: "user",
-      version: "1.0",
+      version: "1.0.0",
       name: "Test",
       bestFriend: { id: "user-123" }, // missing type
       characters: [],
@@ -71,7 +71,7 @@ describe("validate() with field()-based schema", () => {
   it("rejects name that fails custom validator (too short)", () => {
     const input = {
       type: "user",
-      version: "1.0",
+      version: "1.0.0",
       name: "A", // too short per custom validator
       bestFriend: { type: "user", id: "user-123" },
       characters: [],
@@ -87,7 +87,7 @@ describe("validate() with field()-based schema", () => {
   it("accepts name that passes custom validator (>=2 chars)", () => {
     const input = {
       type: "user",
-      version: "1.0",
+      version: "1.0.0",
       name: "Al",
       bestFriend: { type: "user", id: "user-123" },
       characters: [],

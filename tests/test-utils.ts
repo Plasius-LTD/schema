@@ -9,7 +9,7 @@ import { SchemaShape, validateUUID } from "../src/index.js";
 // Mock "character" schema
 export const characterSchema = createSchema(
   {
-    name: field.string().description("Character name").version("1.0"),
+    name: field.string().description("Character name").version("1.0.0"),
   },
   "character"
 );
@@ -17,20 +17,20 @@ export type Character = Infer<typeof characterSchema>;
 
 const userShape: SchemaShape = {
   id: field.string().system().validator(validateUUID).immutable(),
-  name: field.string().description("User name").version("1.0"),
+  name: field.string().description("User name").version("1.0.0"),
 
   bestFriend: field
     .string()
     .optional()
     .description("User's best friend ID")
-    .version("1.0")
+    .version("1.0.0")
     .validator(validateUUID),
 
   characters: field
     .array(field.ref("character").as<Character>())
     .optional()
     .description("Characters owned by this user")
-    .version("1.0"),
+    .version("1.0.0"),
 };
 // Mock "user" schema
 export const userSchema = createSchema(userShape, "user");
@@ -49,21 +49,21 @@ export const mockDb: {
 } = {
   "user:user-1": {
     type: "user",
-    version: "1.0",
+    version: "1.0.0",
     name: "Alice",
     bestFriend: { type: "user", id: "user-2" },
     characters: [{ type: "character", id: "char-1" }],
   },
   "user:user-2": {
     type: "user",
-    version: "1.0",
+    version: "1.0.0",
     name: "Bob",
     bestFriend: { type: "user", id: "user-1" }, // cycle!
     characters: [],
   },
   "character:char-1": {
     type: "character",
-    version: "1.0",
+    version: "1.0.0",
     name: "Hero",
   },
 };
