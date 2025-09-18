@@ -10,6 +10,20 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 ## [Unreleased]
 
 - **Added**
+  - (placeholder)
+
+- **Changed**
+  - (placeholder)
+
+- **Fixed**
+  - (placeholder)
+
+- **Security**
+  - (placeholder)
+
+## [1.1.0] - 2025-09-18
+
+- **Added**
   - field().upgrade() function now added to allow upgrades of older data sets to newer data.
   - min/max/pattern/default FieldBuilder elements added for validation.
   - Added new validator for language code BCP 47 format.
@@ -98,8 +112,9 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 ---
 
-[Unreleased]: https://github.com/Plasius-LTD/schema/compare/v1.0.18...HEAD
+[Unreleased]: https://github.com/Plasius-LTD/schema/compare/v1.1.0...HEAD
 [1.0.0]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.0
 [1.0.13]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.13
 [1.0.17]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.17
 [1.0.18]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.18
+[1.1.0]: https://github.com/Plasius-LTD/schema/releases/tag/v1.1.0
