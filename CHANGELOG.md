@@ -13,7 +13,13 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - new Schema upgrade pathway
 
 - **Changed**
-  - (placeholder)
+  - package.json update to include:
+    - "sideEffects": false,
+    - "files": ["dist"],
+  - package.json removed:
+    - "main": "./dist/index.cjs",
+    - "module": "./dist/index.js",
+    - "types": "./dist/index.d.ts",
 
 - **Fixed**
   - (placeholder)
