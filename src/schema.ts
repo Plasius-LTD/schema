@@ -1,5 +1,12 @@
 import { Infer } from "./infer.js";
-import { FieldType, Schema, SchemaOptions, SchemaShape } from "./types.js";
+import {
+  FieldType,
+  Schema,
+  SchemaOptions,
+  SchemaShape,
+  SchemaUpgradeResult,
+  SchemaUpgradeSpec,
+} from "./types.js";
 import { field } from "./field.js";
 import { PIIAction, PIIClassification, PIILogHandling } from "./pii.js";
 import {
@@ -25,6 +32,52 @@ function cmpSemver(a: string, b: string): number {
     if (ai < bi) return -1;
   }
   return 0;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Helper: apply schema upgrade using SchemaUpgradeSpec (function or cascading steps)
+// ──────────────────────────────────────────────────────────────────────────────
+function applySchemaUpgrade(
+  spec: SchemaUpgradeSpec,
+  input: Record<string, any>,
+  ctx: {
+    from: string;
+    to: string;
+    entityType: string;
+    describe: () => { entityType: string; version: string; shape: Record<string, any> };
+    log?: (msg: string) => void;
+  }
+): SchemaUpgradeResult {
+  // Single universal upgrader
+  if (typeof spec === "function") {
+    return spec(input, ctx);
+  }
+
+  // Cascading steps: sort by target version, then apply those between from..to
+  const steps = [...spec].sort((s1, s2) => cmpSemver(s1.to, s2.to));
+  let working: Record<string, any> = { ...input };
+  let fromVersion = ctx.from;
+
+  for (const step of steps) {
+    // Apply step if it advances beyond current `from` and does not exceed target `to`
+    if (cmpSemver(fromVersion, step.to) < 0 && cmpSemver(step.to, ctx.to) <= 0) {
+      ctx.log?.(`Upgrading entity from v${fromVersion} → v${step.to}`);
+      const res = step.run(working, { ...ctx, from: fromVersion, to: step.to });
+      if (!res || res.ok !== true || !res.value) {
+        return {
+          ok: false,
+          errors: res?.errors?.length
+            ? res.errors
+            : [`Failed to upgrade entity from v${fromVersion} to v${step.to}`],
+        };
+      }
+      working = res.value;
+      fromVersion = step.to;
+    }
+  }
+
+  // If no steps applied or we stopped before ctx.to, the caller will normalize type/version.
+  return { ok: true, value: working };
 }
 
 function validateEnum(
@@ -486,6 +539,7 @@ export function createSchema<S extends SchemaShape>(
     table: "",
     schemaValidator: () => true,
     piiEnforcement: "none",
+    schemaUpgrade: undefined,
   }
 ): Schema<S> {
   const systemFields = {
@@ -495,6 +549,11 @@ export function createSchema<S extends SchemaShape>(
 
   const version = options.version || "1.0.0";
   const store = options.table || "";
+
+  // Optional schema-level upgrader supplied by the caller via options.schemaUpgrade
+  const schemaUpgrade: SchemaUpgradeSpec | undefined = (options as any)
+    .schemaUpgrade;
+
   const schema: Schema<S> = {
     // 🔗 Define the schema shape
     _shape: {
@@ -517,6 +576,32 @@ export function createSchema<S extends SchemaShape>(
       const working: Record<string, any> = { ...(input as any) };
       if (working.type == null) working.type = entityType;
       if (working.version == null) working.version = version;
+
+      // ── Schema-level upgrade (runs once before any field checks) ─────────────
+      const fromVersion = String(working.version ?? "0.0.0");
+      const toVersion = String(version);
+      if (schemaUpgrade && cmpSemver(fromVersion, toVersion) < 0) {
+        const upgradeRes = applySchemaUpgrade(schemaUpgrade, { ...working }, {
+          from: fromVersion,
+          to: toVersion,
+          entityType,
+          describe: () => schema.describe(),
+        });
+        if (!upgradeRes || upgradeRes.ok !== true || !upgradeRes.value) {
+          const errs = upgradeRes?.errors?.length
+            ? upgradeRes.errors
+            : [`Failed to upgrade entity from v${fromVersion} to v${toVersion}`];
+          errors.push(...errs);
+          // Stop early if the schema-level migration itself failed
+          return { valid: false, errors } as any;
+        }
+        // Use the upgraded value as our new working copy
+        for (const k of Object.keys(working)) delete (working as any)[k];
+        Object.assign(working, upgradeRes.value);
+        // Ensure system defaults remain correct after user migration
+        working.type = entityType;
+        working.version = toVersion;
+      }
 
       for (const key in schema._shape) {
         const def = schema._shape[key];
@@ -636,6 +721,50 @@ export function createSchema<S extends SchemaShape>(
 
     // specific validator for a schema to allow conditional validation
     schemaValidator: options.schemaValidator!, // <== expose it here!
+
+    /**
+     * Runs the optional schema-level upgrade function once, without validating.
+     * Useful for offline migrations or testing migration logic.
+     */
+    upgrade(
+      input: Record<string, any>,
+      log?: (msg: string) => void
+    ): {
+      ok: boolean;
+      value?: Record<string, any>;
+      errors?: string[];
+    } {
+      const fromVersion = String((input as any)?.version ?? "0.0.0");
+      const toVersion = String(version);
+      if (!schemaUpgrade || cmpSemver(fromVersion, toVersion) >= 0) {
+        // Nothing to do – already current or no upgrader provided.
+        return {
+          ok: true,
+          value: { ...input, type: entityType, version: toVersion },
+        };
+      }
+      const res = applySchemaUpgrade(
+        schemaUpgrade,
+        { ...(input as any) },
+        {
+          from: fromVersion,
+          to: toVersion,
+          entityType,
+          describe: () => schema.describe(),
+          log,
+        }
+      );
+      if (res && res.ok && res.value) {
+        const out = { ...res.value, type: entityType, version: toVersion };
+        return { ok: true, value: out };
+      }
+      return {
+        ok: false,
+        errors: res?.errors?.length
+          ? res.errors
+          : [`Failed to upgrade entity from v${fromVersion} to v${toVersion}`],
+      };
+    },
 
     /**
      * Recursively validates entity references defined in this schema.
@@ -836,6 +965,7 @@ export function createSchema<S extends SchemaShape>(
       return {
         entityType,
         version,
+        hasSchemaUpgrade: !!schemaUpgrade,
         shape: description,
       };
     },
