@@ -137,3 +137,35 @@ describe("PII log sanitization", () => {
     });
   });
 });
+
+describe("PII read/write symmetry for hashed fields", () => {
+  const HashSchema = createSchema(
+    {
+      sessionId: field.string().PID({
+        classification: "low",
+        action: "hash",
+        logHandling: "pseudonym",
+      }),
+      note: field.string(),
+    },
+    "HashSchema",
+    { version: "1.0.0", piiEnforcement: "strict" }
+  );
+
+  it("should surface hash values via prepareForRead", () => {
+    const hashFn = (v: any) => `hash(${v})`;
+    const encryptFn = (v: any) => `enc(${v})`;
+    const stored = HashSchema.prepareForStorage(
+      { sessionId: "abc123", note: "ok" } as any,
+      encryptFn,
+      hashFn
+    );
+
+    expect(stored.sessionIdHash).toBe("hash(abc123)");
+    expect(stored.note).toBe("ok");
+
+    const read = HashSchema.prepareForRead(stored as any, (v) => v);
+    expect(read.sessionId).toBe("hash(abc123)");
+    expect(read.note).toBe("ok");
+  });
+});

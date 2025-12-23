@@ -80,8 +80,11 @@ export function prepareForRead(
   for (const key in shape) {
     const def = shape[key];
     if (!def) continue;
-    if (def._pii?.action === "encrypt") {
+    const action = def._pii?.action;
+    if (action === "encrypt") {
       result[key] = decryptFn(stored[key + "Encrypted"]);
+    } else if (action === "hash") {
+      result[key] = stored[key + "Hash"];
     } else {
       result[key] = stored[key];
     }

@@ -127,6 +127,23 @@ function getEnumValues(def: any): Array<string | number> | undefined {
   return ok ? (src as Array<string | number>) : undefined;
 }
 
+// Apply default value when provided and input is nullish
+function applyDefault(
+  def: any,
+  current: any
+): { value: any; applied: boolean } {
+  if (
+    (current === undefined || current === null) &&
+    typeof def?.getDefault === "function"
+  ) {
+    const next = def.getDefault();
+    if (next !== undefined) {
+      return { value: next, applied: true };
+    }
+  }
+  return { value: current, applied: false };
+}
+
 function isOptional(def: any): boolean {
   return (def?.isRequired ?? false) === false;
 }
@@ -258,7 +275,14 @@ function validateObjectChildren(
     string,
     FieldBuilder<any>
   ][]) {
-    const childValue = obj[childKey];
+    let childValue = obj[childKey];
+
+    // Apply defaults before required checks
+    const { value: withDefault, applied } = applyDefault(childDef, childValue);
+    if (applied) {
+      obj[childKey] = withDefault;
+      childValue = withDefault;
+    }
 
     // Required check
     const { missing } = checkMissingRequired(
@@ -383,7 +407,16 @@ function validateArrayOfObjects(
       string,
       FieldBuilder<any>
     ][]) {
-      const childValue = (item as any)[childKey];
+      let childValue = (item as any)[childKey];
+
+      const { value: withDefault, applied } = applyDefault(
+        childDef,
+        childValue
+      );
+      if (applied) {
+        (item as any)[childKey] = withDefault;
+        childValue = withDefault;
+      }
 
       // Required check (path-aware)
       const { missing } = checkMissingRequired(
@@ -505,14 +538,14 @@ function validateRefField(
   }
 }
 
-function validateByType(
-  parentKey: string,
-  key: string,
-  value: any,
-  def: any,
-  errors: string[]
-) {
-  const path = parentKey ? `${parentKey}.${key}` : key;
+  function validateByType(
+    parentKey: string,
+    key: string,
+    value: any,
+    def: any,
+    errors: string[]
+  ) {
+    const path = parentKey ? `${parentKey}.${key}` : key;
   switch (def.type) {
     case "string":
       return validateStringField(parentKey, key, value, def, errors);
@@ -605,11 +638,18 @@ export function createSchema<S extends SchemaShape>(
 
       for (const key in schema._shape) {
         const def = schema._shape[key];
-        const value = working[key];
+        let value = working[key];
 
         if (!def) {
           errors.push(`Field definition missing for: ${key}`);
           continue;
+        }
+
+        // Apply defaults before required/validation checks
+        const { value: withDefault, applied } = applyDefault(def, value);
+        if (applied) {
+          working[key] = withDefault;
+          value = withDefault;
         }
 
         // 1) Required
@@ -811,13 +851,15 @@ export function createSchema<S extends SchemaShape>(
           continue;
         }
 
-        const refType = (def as any).refType as string;
         const autoValidate = (def as any).autoValidate !== false;
         const refPolicy = (def as any).refPolicy ?? "eager";
         const value = (entity as any)[key];
         if (!value) continue;
 
         if (def.type === "ref") {
+          const refType = (def as any).refType as string;
+          if (!refType)
+            throw new Error(`Missing refType for reference field ${key}`);
           const ref = value as { type: string; id: string };
           const target = await options.resolveEntity(refType, ref.id);
           if (!target)
@@ -837,6 +879,9 @@ export function createSchema<S extends SchemaShape>(
           }
           // Handle array of refs: type === "array" and itemType?.type === "ref"
         } else if (def.type === "array" && def.itemType?.type === "ref") {
+          const refType = (def.itemType as any).refType as string;
+          if (!refType)
+            throw new Error(`Missing refType for reference array field ${key}`);
           const refs = value as Array<{ type: string; id: string }>;
           for (const ref of refs) {
             const target = await options.resolveEntity(refType, ref.id);

@@ -13,10 +13,12 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - (placeholder)
 
 - **Changed**
-  - (placeholder)
+  - README usage examples refreshed to match current `createSchema` signature, field helpers, and default-handling behavior.
 
 - **Fixed**
-  - (placeholder)
+  - Defaults are now applied during validation for top-level fields, nested objects, and array items.
+  - `prepareForRead` now returns hashed values written by `prepareForStorage`, preventing loss of hash-only PII fields.
+  - Composition validation now uses the item ref type for array-of-ref fields, correctly resolving and validating referenced entities.
 
 - **Security**
   - (placeholder)

@@ -1,4 +1,4 @@
-import { describe, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createSchema } from "../src/schema.js";
 import { field } from "../src/field.js";
 import { expectValid, expectInvalid } from "./test-utils.js";
@@ -497,5 +497,55 @@ describe("schema.ts – validator coverage", () => {
     );
     const r = S.validate({ ok: "ok" });
     expectValid(r);
+  });
+
+  it("should apply defaults before validating and include them in output", () => {
+    const Defaults = createSchema(
+      {
+        name: field.string().default("anon"),
+        tags: field.array(field.string()).default(() => ["user"]),
+        prefs: field
+          .object({
+            theme: field.string().default("light"),
+          })
+          .default(() => ({})),
+      },
+      "Defaults",
+      { version: "1.0.0", piiEnforcement: "strict" }
+    );
+
+    const result = Defaults.validate({});
+    expectValid(result);
+    expect(result.value?.name).toBe("anon");
+    expect(result.value?.tags).toEqual(["user"]);
+    expect(result.value?.prefs?.theme).toBe("light");
+  });
+
+  it("should resolve array-of-ref composition using the item refType", async () => {
+    const Asset = createSchema({ id: field.string() }, "asset", {
+      version: "1.0.0",
+      piiEnforcement: "strict",
+    });
+
+    const Collection = createSchema(
+      {
+        id: field.string(),
+        assets: field.array(field.ref<typeof Asset["_shape"]>("asset")),
+      },
+      "collection",
+      { version: "1.0.0", piiEnforcement: "strict" }
+    );
+
+    const resolve = vi.fn(async (type: string, id: string) => {
+      if (type === "asset") return { type, id, version: "1.0.0" };
+      return null;
+    });
+
+    await Collection.validateComposition(
+      { type: "collection", version: "1.0.0", id: "c1", assets: [{ type: "asset", id: "a1" }] },
+      { resolveEntity: resolve, maxDepth: 0 }
+    );
+
+    expect(resolve).toHaveBeenCalledWith("asset", "a1");
   });
 });

@@ -46,7 +46,8 @@ import {
   createSchema,
   field,
   getSchemaForType,
-  getAllSchemas
+  getAllSchemas,
+  Infer
 } from "@plasius/schema";
 ```
 
@@ -56,25 +57,26 @@ import {
 
 ```ts
 const UserFields = {
-  id: field.string().uuid().required().description("Unique user id"),
+  id: field.uuid().required().description("Unique user id"),
   email: field.email().required(),
-  name: field.name().optional(),
-  age: field.number().int().min(0).optional(),
+  name: field.generalText().optional(),
+  age: field.number().min(0).optional(),
   roles: field.array(field.string().enum(["admin", "user"]))
-            .default(["user"]).description("RBAC roles"),
-  createdAt: field.dateTimeISO().default(() => new Date()),
+    .default(["user"])
+    .description("RBAC roles"),
+  createdAt: field.dateTimeISO().default(() => new Date().toISOString()),
 };
 ```
 
 Common methods (non‑exhaustive): `.required()`, `.optional()`, `.default(v|fn)`, `.description(text)`, and type‑specific helpers like `.email()`, `.uuid()`, `.min()`, `.max()`, `.enum([...])`.
+Defaults are applied during validation when inputs are missing/`undefined`.
 
 ### 2) Create a **versioned** schema (enforces `type` + `version`)
 
 ```ts
-export const UserSchema = createSchema({
-  entityType: "user",
+export const UserSchema = createSchema(UserFields, "user", {
   version: "1.0.0",
-  fields: UserFields,
+  piiEnforcement: "strict",
 });
 
 // Strongly-typed entity from a schema definition
@@ -99,7 +101,7 @@ const raw = {
   email: "alice@example.com",
 };
 
-const result = UserSchemavalidate(raw);
+const result = UserSchema.validate(raw);
 if (result.valid && result.errors.length == 0) {
   // result.value is typed as User
   const user: User = result.value;
@@ -126,14 +128,14 @@ const bad = UserSchema.validate(wrong);
 Keep new versions side‑by‑side and migrate at edges:
 
 ```ts
-export const UserV2 = createSchema({
-  entityType: "user",
-  version: "2.0.0",
-  fields: {
+export const UserV2 = createSchema(
+  {
     ...UserFields,
     displayName: field.string().min(1).max(100).optional(),
   },
-});
+  "user",
+  { version: "2.0.0", piiEnforcement: "strict" }
+);
 ```
 
 > Write a small migration function in your app to transform `User (1.0.0)` → `User (2.0.0)` where needed.
@@ -161,10 +163,9 @@ const UserV3Fields = {
     }),
 };
 
-export const UserV3 = createSchema({
-  entityType: "user",
+export const UserV3 = createSchema(UserV3Fields, "user", {
   version: "3.0.0",
-  fields: UserV3Fields,
+  piiEnforcement: "strict",
 });
 ```
 
