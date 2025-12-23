@@ -145,7 +145,7 @@ function applyDefault(
 }
 
 function isOptional(def: any): boolean {
-  return (def?.isRequired ?? false) === false;
+  return def?.isRequired === false;
 }
 
 function getValidator(def: any): ((v: any) => boolean) | undefined {
@@ -861,6 +861,11 @@ export function createSchema<S extends SchemaShape>(
           if (!refType)
             throw new Error(`Missing refType for reference field ${key}`);
           const ref = value as { type: string; id: string };
+          if (ref.type && ref.type !== refType) {
+            throw new Error(
+              `Reference type mismatch for field ${key}: expected ${refType}, got ${ref.type}`
+            );
+          }
           const target = await options.resolveEntity(refType, ref.id);
           if (!target)
             throw new Error(
@@ -884,6 +889,11 @@ export function createSchema<S extends SchemaShape>(
             throw new Error(`Missing refType for reference array field ${key}`);
           const refs = value as Array<{ type: string; id: string }>;
           for (const ref of refs) {
+            if (ref.type && ref.type !== refType) {
+              throw new Error(
+                `Reference type mismatch for field ${key}: expected ${refType}, got ${ref.type}`
+              );
+            }
             const target = await options.resolveEntity(refType, ref.id);
             if (!target)
               throw new Error(
@@ -998,7 +1008,7 @@ export function createSchema<S extends SchemaShape>(
       for (const [key, def] of Object.entries(schema._shape)) {
         description[key] = {
           type: def.type,
-          optional: !!def.optional,
+          optional: isOptional(def),
           description: def._description ?? "",
           version: def._version ?? "",
           enum: getEnumValues(def as any),

@@ -70,6 +70,7 @@ const UserFields = {
 
 Common methods (non‑exhaustive): `.required()`, `.optional()`, `.default(v|fn)`, `.description(text)`, and type‑specific helpers like `.email()`, `.uuid()`, `.min()`, `.max()`, `.enum([...])`.
 Defaults are applied during validation when inputs are missing/`undefined`.
+Fields are required by default; call `.optional()` (or provide `.default()`) to allow omission.
 
 ### 2) Create a **versioned** schema (enforces `type` + `version`)
 

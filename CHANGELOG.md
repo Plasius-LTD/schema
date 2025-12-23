@@ -14,11 +14,14 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 - **Changed**
   - README usage examples refreshed to match current `createSchema` signature, field helpers, and default-handling behavior.
+  - Optionality tracking consolidated to a single flag (`isRequired`, default `true`) used across validation, descriptions, and type inference; `.optional()`/`.default()` set `isRequired` to `false`.
 
 - **Fixed**
   - Defaults are now applied during validation for top-level fields, nested objects, and array items.
   - `prepareForRead` now returns hashed values written by `prepareForStorage`, preventing loss of hash-only PII fields.
   - Composition validation now uses the item ref type for array-of-ref fields, correctly resolving and validating referenced entities.
+  - Schema descriptions now surface optionality correctly and include field descriptions.
+  - Composition validation rejects mismatched reference types before resolution.
 
 - **Security**
   - (placeholder)

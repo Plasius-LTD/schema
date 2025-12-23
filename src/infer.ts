@@ -14,7 +14,7 @@ type InferField<T> = T extends { _type: infer U }
             ? InferFromShape<Shape>
             : unknown;
 
-type IsOptional<T> = T extends { optional: true } ? true : false;
+type IsOptional<T> = T extends { isRequired: false } ? true : false;
 
 type InferFromShape<S extends SchemaShape> = {
   [K in keyof S]: IsOptional<S[K]> extends true
