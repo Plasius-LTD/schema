@@ -20,7 +20,10 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - Defaults are now applied during validation for top-level fields, nested objects, and array items.
   - `prepareForRead` now returns hashed values written by `prepareForStorage`, preventing loss of hash-only PII fields.
   - Composition validation now uses the item ref type for array-of-ref fields, correctly resolving and validating referenced entities.
-  - Schema descriptions now surface optionality correctly and include field descriptions.
+  - Arrays of primitives now run their item validators (e.g., `.pattern()`, `.min()`) for every element instead of accepting invalid values.
+  - Arrays of refs now validate nested ref shapes (defaults, required fields, and validators) instead of only checking `type/id`.
+  - Single ref fields now enforce `refType` during validation, preventing mismatched entity links earlier.
+  - Schema descriptions now surface optionality, system/immutable flags, and deprecation metadata alongside field descriptions.
   - Composition validation rejects mismatched reference types before resolution.
 
 - **Security**

@@ -345,6 +345,15 @@ function validateArrayOfStrings(
       errors.push(enumError);
     }
   }
+
+  const validator = getValidator(itemDef);
+  if (validator) {
+    arr.forEach((v, idx) => {
+      if (!validator(v)) {
+        errors.push(`Invalid value for field: ${path}[${idx}]`);
+      }
+    });
+  }
 }
 
 function validateArrayOfNumbers(
@@ -366,6 +375,15 @@ function validateArrayOfNumbers(
       errors.push(enumError);
     }
   }
+
+  const validator = getValidator(itemDef);
+  if (validator) {
+    arr.forEach((v, idx) => {
+      if (!validator(v)) {
+        errors.push(`Invalid value for field: ${path}[${idx}]`);
+      }
+    });
+  }
 }
 
 function validateArrayOfBooleans(
@@ -378,6 +396,15 @@ function validateArrayOfBooleans(
   const path = parentKey ? `${parentKey}.${key}` : key;
   if (!arr.every((v) => typeof v === "boolean")) {
     errors.push(`Field ${path} must be boolean[]`);
+  }
+
+  const validator = getValidator(_itemDef);
+  if (validator) {
+    arr.forEach((v, idx) => {
+      if (!validator(v)) {
+        errors.push(`Invalid value for field: ${path}[${idx}]`);
+      }
+    });
   }
 }
 
@@ -489,14 +516,21 @@ function validateArrayField(
             string,
             FieldBuilder<any>
           ][]) {
-            const childValue = ref[childKey];
+            const childPath = `${path}[${idx}].${childKey}`;
+            let childValue = ref[childKey];
+            const { value: withDefault, applied } = applyDefault(
+              childDef,
+              childValue
+            );
+            if (applied) {
+              ref[childKey] = withDefault;
+              childValue = withDefault;
+            }
             if (
               (childValue === undefined || childValue === null) &&
               !isOptional(childDef)
             ) {
-              errors.push(
-                `Missing required field: ${path}[${idx}].${childKey}`
-              );
+              errors.push(`Missing required field: ${childPath}`);
               continue;
             }
             const childValidator = getValidator(childDef);
@@ -506,11 +540,19 @@ function validateArrayField(
               childValue !== null
             ) {
               const valid = childValidator(childValue);
-              if (!valid)
-                errors.push(
-                  `Invalid value for field: ${path}[${idx}].${childKey}`
-                );
+              if (!valid) {
+                errors.push(`Invalid value for field: ${childPath}`);
+                continue;
+              }
             }
+
+            validateByType(
+              `${path}[${idx}]`,
+              childKey,
+              childValue,
+              childDef,
+              errors
+            );
           }
         }
       });
@@ -524,17 +566,25 @@ function validateRefField(
   parentKey: string,
   key: string,
   value: any,
-  _def: any,
+  def: any,
   errors: string[]
 ) {
+  const path = parentKey ? `${parentKey}.${key}` : key;
   if (
     typeof value !== "object" ||
     value === null ||
     typeof value.type !== "string" ||
     typeof value.id !== "string"
   ) {
-    const path = parentKey ? `${parentKey}.${key}` : key;
     errors.push(`Field ${path} must be { type: string; id: string }`);
+    return;
+  }
+
+  const expectedType = (def as any).refType;
+  if (expectedType && value.type !== expectedType) {
+    errors.push(
+      `Field ${path} must reference type: ${expectedType} (got ${value.type})`
+    );
   }
 }
 
@@ -1009,8 +1059,12 @@ export function createSchema<S extends SchemaShape>(
         description[key] = {
           type: def.type,
           optional: isOptional(def),
+          immutable: !!def.isImmutable,
+          system: !!def.isSystem,
           description: def._description ?? "",
           version: def._version ?? "",
+          deprecated: (def as any).deprecated ?? false,
+          deprecatedVersion: (def as any).deprecatedVersion ?? null,
           enum: getEnumValues(def as any),
           refType: (def as any).refType ?? undefined,
           pii: def._pii ?? undefined,
