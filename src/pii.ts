@@ -52,18 +52,60 @@ export function prepareForStorage(
   encryptFn: (value: any) => string,
   hashFn: (value: any) => string
 ): Record<string, any> {
+  const build = (def: any, value: any, key: string, out: any) => {
+    if (!def) return;
+
+    // Leaf handling with PII transforms
+    if (def._pii?.action === "encrypt") {
+      out[key + "Encrypted"] = value === undefined ? value : encryptFn(value);
+      return;
+    }
+    if (def._pii?.action === "hash") {
+      out[key + "Hash"] = value === undefined ? value : hashFn(value);
+      return;
+    }
+    if (def._pii?.action === "clear") {
+      out[key] = null;
+      return;
+    }
+
+    if (def.type === "object" && def._shape) {
+      const obj: any = {};
+      for (const [childKey, childDef] of Object.entries(def._shape)) {
+        build(childDef, value?.[childKey], childKey, obj);
+      }
+      out[key] = obj;
+      return;
+    }
+
+    if (def.type === "array" && def.itemType && Array.isArray(value)) {
+      out[key] = value.map((item: any) => {
+        const tmp: any = {};
+        // use a fixed child key to reuse build logic
+        build(def.itemType, item, "item", tmp);
+        return tmp.item;
+      });
+      return;
+    }
+
+    if (def.type === "ref") {
+      const ref: any = { ...value };
+      const refShape = def._shape;
+      if (refShape && value) {
+        for (const [childKey, childDef] of Object.entries(refShape)) {
+          build(childDef, value[childKey], childKey, ref);
+        }
+      }
+      out[key] = ref;
+      return;
+    }
+
+    out[key] = value;
+  };
+
   const result: any = {};
   for (const key in shape) {
-    const def = shape[key];
-    if (!def) continue;
-    const value = input[key];
-    if (def._pii?.action === "encrypt") {
-      result[key + "Encrypted"] = encryptFn(value);
-    } else if (def._pii?.action === "hash") {
-      result[key + "Hash"] = hashFn(value);
-    } else {
-      result[key] = value;
-    }
+    build(shape[key], input?.[key], key, result);
   }
   return result;
 }
@@ -76,18 +118,48 @@ export function prepareForRead(
   stored: Record<string, any>,
   decryptFn: (value: string) => any
 ): Record<string, any> {
+  const readValue = (def: any, key: string, container: any): any => {
+    if (!def) return container?.[key];
+    const action = def._pii?.action;
+    if (action === "encrypt") return decryptFn(container?.[key + "Encrypted"]);
+    if (action === "hash") return container?.[key + "Hash"];
+    if (action === "clear") return null;
+
+    if (def.type === "object" && def._shape) {
+      const obj: any = {};
+      const source = container?.[key] ?? {};
+      for (const [childKey, childDef] of Object.entries(def._shape)) {
+        obj[childKey] = readValue(childDef, childKey, source);
+      }
+      return obj;
+    }
+
+    if (def.type === "array" && def.itemType) {
+      const arr = container?.[key];
+      if (!Array.isArray(arr)) return arr;
+      return arr.map((item: any) => {
+        const tmp: any = { item };
+        return readValue(def.itemType, "item", tmp);
+      });
+    }
+
+    if (def.type === "ref") {
+      const ref = { ...(container?.[key] ?? {}) };
+      const refShape = def._shape;
+      if (refShape) {
+        for (const [childKey, childDef] of Object.entries(refShape)) {
+          ref[childKey] = readValue(childDef, childKey, ref);
+        }
+      }
+      return ref;
+    }
+
+    return container?.[key];
+  };
+
   const result: any = {};
   for (const key in shape) {
-    const def = shape[key];
-    if (!def) continue;
-    const action = def._pii?.action;
-    if (action === "encrypt") {
-      result[key] = decryptFn(stored[key + "Encrypted"]);
-    } else if (action === "hash") {
-      result[key] = stored[key + "Hash"];
-    } else {
-      result[key] = stored[key];
-    }
+    result[key] = readValue(shape[key], key, stored);
   }
   return result;
 }
@@ -100,20 +172,51 @@ export function sanitizeForLog(
   data: Record<string, any>,
   pseudonymFn: (value: any) => string
 ): Record<string, any> {
+  const visit = (def: any, value: any): any => {
+    if (!def) return undefined;
+    const handling = def._pii?.logHandling as PIILogHandling | undefined;
+    if (handling === "omit") return undefined;
+    if (handling === "redact") return "[REDACTED]";
+    if (handling === "pseudonym") return pseudonymFn(value);
+
+    if (def.type === "object" && def._shape) {
+      const obj: any = {};
+      const src = value ?? {};
+      for (const [k, childDef] of Object.entries(def._shape)) {
+        const child = visit(childDef, src[k]);
+        if (child !== undefined) obj[k] = child;
+      }
+      return obj;
+    }
+
+    if (def.type === "array" && def.itemType) {
+      if (!Array.isArray(value)) return undefined;
+      const arr = value
+        .map((v: any) => visit(def.itemType, v))
+        .filter((v) => v !== undefined);
+      return arr;
+    }
+
+    if (def.type === "ref") {
+      const ref: any = {};
+      const refShape = def._shape;
+      const src = value ?? {};
+      if (refShape) {
+        for (const [k, childDef] of Object.entries(refShape)) {
+          const child = visit(childDef, src[k]);
+          if (child !== undefined) ref[k] = child;
+        }
+      }
+      return ref;
+    }
+
+    return value;
+  };
+
   const output: any = {};
   for (const key in shape) {
-    const def = shape[key];
-    if (!def) continue;
-    const value = data[key];
-    const handling = def._pii?.logHandling as PIILogHandling | undefined;
-    if (handling === "omit") continue;
-    if (handling === "redact") {
-      output[key] = "[REDACTED]";
-    } else if (handling === "pseudonym") {
-      output[key] = pseudonymFn(value);
-    } else {
-      output[key] = value;
-    }
+    const child = visit(shape[key], data?.[key]);
+    if (child !== undefined) output[key] = child;
   }
   return output;
 }
@@ -152,17 +255,59 @@ export function scrubPiiForDelete(
   shape: Record<string, any>,
   stored: Record<string, any>
 ): Record<string, any> {
-  const result: any = { ...stored };
-  for (const key in shape) {
-    const def = shape[key];
-    if (!def) continue;
-    if (def._pii?.action === "encrypt") {
-      result[key + "Encrypted"] = null;
-    } else if (def._pii?.action === "hash") {
-      result[key + "Hash"] = null;
-    } else if (def._pii?.action === "clear") {
-      result[key] = null;
+  const result: any = Array.isArray(stored) ? [...stored] : { ...stored };
+
+  const setAtPath = (target: any, path: Array<string | number>, val: any) => {
+    let cur = target;
+    for (let i = 0; i < path.length - 1; i++) {
+      const p = path[i];
+      if (cur[p] === undefined)
+        cur[p] = typeof path[i + 1] === "number" ? [] : {};
+      cur = cur[p];
     }
+    cur[path[path.length - 1]] = val;
+  };
+
+  const visit = (def: any, value: any, path: Array<string | number>) => {
+    if (!def) return;
+    if (def._pii?.action === "encrypt") {
+      const targetKey = `${path[path.length - 1]}Encrypted`;
+      setAtPath(result, [...path.slice(0, -1), targetKey], null);
+      return;
+    }
+    if (def._pii?.action === "hash") {
+      const targetKey = `${path[path.length - 1]}Hash`;
+      setAtPath(result, [...path.slice(0, -1), targetKey], null);
+      return;
+    }
+    if (def._pii?.action === "clear") {
+      setAtPath(result, path, null);
+      return;
+    }
+
+    if (def.type === "object" && def._shape && value) {
+      for (const [k, childDef] of Object.entries(def._shape)) {
+        visit(childDef, value[k], [...path, k]);
+      }
+    }
+
+    if (def.type === "array" && def.itemType && Array.isArray(value)) {
+      value.forEach((item, idx) => visit(def.itemType, item, [...path, idx]));
+    }
+
+    if (def.type === "ref") {
+      const refShape = def._shape;
+      if (refShape && value) {
+        for (const [k, childDef] of Object.entries(refShape)) {
+          visit(childDef, value[k], [...path, k]);
+        }
+      }
+    }
+  };
+
+  for (const key in shape) {
+    visit(shape[key], stored?.[key], [key]);
   }
+
   return result;
 }

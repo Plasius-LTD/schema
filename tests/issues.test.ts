@@ -112,4 +112,20 @@ describe("Known issues coverage", () => {
     expect(meta.shape.name.system).toBe(false);
     expect(meta.shape.name.immutable).toBe(false);
   });
+
+  it("describe() normalizes nullish metadata (enum/refType/pii/deprecatedVersion)", () => {
+    const S = createSchema(
+      {
+        plain: field.string(),
+      },
+      "DescribeNulls",
+      { version: "1.0.0", piiEnforcement: "strict" }
+    );
+
+    const meta = S.describe();
+    expect(meta.shape.plain.enum).toBeNull();
+    expect(meta.shape.plain.refType).toBeNull();
+    expect(meta.shape.plain.pii).toBeNull();
+    expect(meta.shape.plain.deprecatedVersion).toBeNull();
+  });
 });

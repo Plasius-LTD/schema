@@ -22,6 +22,11 @@ import { validateSemVer } from "./validation/version.SEMVER2.0.0.js";
 
 const globalSchemaRegistry = new Map<string, Schema<any>>();
 
+function deepClone<T>(value: T): T {
+  if (typeof structuredClone === "function") return structuredClone(value);
+  return JSON.parse(JSON.stringify(value));
+}
+
 function cmpSemver(a: string, b: string): number {
   const pa = a.split(".").map((n) => parseInt(n, 10));
   const pb = b.split(".").map((n) => parseInt(n, 10));
@@ -656,7 +661,10 @@ export function createSchema<S extends SchemaShape>(
         return { valid: false, errors: ["Input must be an object"] } as any;
       }
       // Work on a non-mutating copy that includes system defaults for first-time objects
-      const working: Record<string, any> = { ...(input as any) };
+      const working: Record<string, any> =
+        typeof input === "object" && input !== null
+          ? deepClone(input as any)
+          : { ...(input as any) };
       if (working.type == null) working.type = entityType;
       if (working.version == null) working.version = version;
 
@@ -1064,10 +1072,14 @@ export function createSchema<S extends SchemaShape>(
           description: def._description ?? "",
           version: def._version ?? "",
           deprecated: (def as any).deprecated ?? false,
-          deprecatedVersion: (def as any).deprecatedVersion ?? null,
-          enum: getEnumValues(def as any),
-          refType: (def as any).refType ?? undefined,
-          pii: def._pii ?? undefined,
+          deprecatedVersion:
+            (def as any).deprecatedVersion === undefined
+              ? null
+              : (def as any).deprecatedVersion,
+          enum: getEnumValues(def as any) ?? null,
+          refType: (def as any).refType ?? null,
+          pii:
+            !def._pii || def._pii.classification === "none" ? null : def._pii,
         };
       }
 

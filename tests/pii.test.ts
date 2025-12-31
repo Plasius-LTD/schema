@@ -168,4 +168,75 @@ describe("PII read/write symmetry for hashed fields", () => {
     expect(read.sessionId).toBe("hash(abc123)");
     expect(read.note).toBe("ok");
   });
+
+  it("handles nested PII in objects/arrays/refs for storage/read/sanitize/scrub", () => {
+    const Nested = createSchema(
+      {
+        profile: field.object({
+          email: field.email(),
+          prefs: field.object({
+            theme: field.string().PID({
+              classification: "low",
+              action: "encrypt",
+              logHandling: "pseudonym",
+            }),
+          }),
+        }),
+        tags: field.array(
+          field.object({
+            label: field.string().PID({
+              classification: "low",
+              action: "hash",
+              logHandling: "redact",
+            }),
+          })
+        ),
+        owner: field.ref("user") as any,
+      },
+      "NestedPII",
+      { version: "1.0.0", piiEnforcement: "strict" }
+    );
+
+    (Nested._shape as any).owner._shape = {
+      name: field.string().PID({
+        classification: "high",
+        action: "clear",
+        logHandling: "omit",
+      }),
+    };
+
+    const input = {
+      profile: {
+        email: "a@b.com",
+        prefs: { theme: "dark" },
+      },
+      tags: [{ label: "x" }],
+      owner: { type: "user", id: "u1", name: "Alice" },
+    };
+
+    const encryptFn = (v: any) => `enc(${v})`;
+    const hashFn = (v: any) => `hash(${v})`;
+
+    const stored = Nested.prepareForStorage(input as any, encryptFn, hashFn);
+    expect(stored.profile.prefs.themeEncrypted).toBe("enc(dark)");
+    expect(stored.tags[0].labelHash).toBe("hash(x)");
+    expect(stored.owner.name).toBeNull();
+
+    const read = Nested.prepareForRead(stored as any, (v) => v);
+    expect(read.profile.prefs.theme).toBe("enc(dark)");
+    expect(read.tags[0].label).toBe("hash(x)");
+    expect(read.owner.name).toBeNull();
+
+    const sanitized = Nested.sanitizeForLog(read as any, (v) => `p(${v})`);
+    expect(sanitized.profile.prefs.theme).toBe("p(enc(dark))");
+    expect(sanitized.tags[0].label).toBe("[REDACTED]");
+    expect(Object.prototype.hasOwnProperty.call(sanitized.owner, "name")).toBe(
+      false
+    );
+
+    const scrubbed = Nested.scrubPiiForDelete(stored as any);
+    expect(scrubbed.profile.prefs.themeEncrypted).toBeNull();
+    expect(scrubbed.tags[0].labelHash).toBeNull();
+    expect(scrubbed.owner.name).toBeNull();
+  });
 });

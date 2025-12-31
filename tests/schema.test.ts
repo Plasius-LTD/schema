@@ -548,4 +548,34 @@ describe("schema.ts – validator coverage", () => {
 
     expect(resolve).toHaveBeenCalledWith("asset", "a1");
   });
+
+  it("does not mutate caller input when applying defaults to nested structures", () => {
+    const S = createSchema(
+      {
+        profile: field.object({
+          nick: field.string().default("n1"),
+          prefs: field.object({
+            theme: field.string().default("dark"),
+          }).default(() => ({})),
+        }),
+        tags: field.array(
+          field.object({
+            label: field.string().default("x"),
+          })
+        ),
+      },
+      "NonMutating",
+      { version: "1.0.0", piiEnforcement: "strict" }
+    );
+
+    const input = { profile: {}, tags: [{}] };
+    const clone = JSON.parse(JSON.stringify(input));
+    const result = S.validate(input);
+
+    expect(result.valid).toBe(true);
+    expect(input).toEqual(clone); // unchanged
+    expect(result.value?.profile.nick).toBe("n1");
+    expect(result.value?.profile.prefs.theme).toBe("dark");
+    expect(result.value?.tags?.[0].label).toBe("x");
+  });
 });

@@ -23,7 +23,9 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - Arrays of primitives now run their item validators (e.g., `.pattern()`, `.min()`) for every element instead of accepting invalid values.
   - Arrays of refs now validate nested ref shapes (defaults, required fields, and validators) instead of only checking `type/id`.
   - Single ref fields now enforce `refType` during validation, preventing mismatched entity links earlier.
-  - Schema descriptions now surface optionality, system/immutable flags, and deprecation metadata alongside field descriptions.
+  - PII helpers (`prepareForStorage`, `prepareForRead`, `sanitizeForLog`, `scrubPiiForDelete`) now recurse through nested objects, arrays, and refs so nested PII is transformed/sanitized/scrubbed correctly.
+  - Validation now deep-clones inputs before applying defaults to avoid mutating caller-owned objects.
+  - Schema descriptions now surface optionality, system/immutable flags, deprecation metadata, and normalize nullable fields (`enum`, `refType`, `pii`, `deprecatedVersion`) to `null`.
   - Composition validation rejects mismatched reference types before resolution.
 
 - **Security**
