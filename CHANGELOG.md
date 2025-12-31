@@ -31,6 +31,9 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - Validation now deep-clones inputs before applying defaults to avoid mutating caller-owned objects.
   - Schema descriptions now surface optionality, system/immutable flags, deprecation metadata, and normalize nullable fields (`enum`, `refType`, `pii`, `deprecatedVersion`) to `null`.
   - Composition validation rejects mismatched reference types before resolution.
+  - Numeric enums are enforced during validation instead of accepting out-of-range values.
+  - Immutable flags are honored for nested object/array/ref children when validating updates against an existing entity.
+  - PII strict/warn enforcement now applies to nested fields (objects, arrays, refs), blocking empty high-PII subfields.
 
 - **Security**
   - (placeholder)

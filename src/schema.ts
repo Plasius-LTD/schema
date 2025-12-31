@@ -4,6 +4,7 @@ import {
   Schema,
   SchemaOptions,
   SchemaShape,
+  PIIEnforcement,
   SchemaUpgradeResult,
   SchemaUpgradeSpec,
 } from "./types.js";
@@ -263,12 +264,21 @@ function validateNumberField(
   parentKey: string,
   key: string,
   value: any,
-  _def: any,
+  def: any,
   errors: string[]
 ) {
-  const enumPath = parentKey ? `${parentKey}.${key}` : key;
+  const path = parentKey ? `${parentKey}.${key}` : key;
   if (typeof value !== "number") {
-    errors.push(`Field ${enumPath} must be number`);
+    errors.push(`Field ${path} must be number`);
+    return;
+  }
+
+  const enumValues = getEnumValues(def);
+  if (Array.isArray(enumValues)) {
+    const enumError = validateEnum(path, value, enumValues);
+    if (enumError) {
+      errors.push(enumError);
+    }
   }
 }
 
@@ -289,13 +299,18 @@ function validateObjectChildren(
   parentKey: string,
   obj: any,
   shape: Record<string, any>,
-  errors: string[]
+  errors: string[],
+  existing: Record<string, any> | undefined,
+  piiEnforcement: PIIEnforcement,
+  logger?: { warn: (msg: string) => void }
 ) {
   for (const [childKey, childDef] of Object.entries(shape) as [
     string,
     FieldBuilder<any>
   ][]) {
     let childValue = obj[childKey];
+    const existingChild =
+      existing && typeof existing === "object" ? (existing as any)[childKey] : undefined;
 
     // Apply defaults before required checks
     const { value: withDefault, applied } = applyDefault(childDef, childValue);
@@ -314,6 +329,27 @@ function validateObjectChildren(
     );
     if (missing) continue;
 
+    const { immutableViolation } = checkImmutable(
+      parentKey,
+      childKey,
+      childValue,
+      childDef,
+      existing,
+      errors
+    );
+    if (immutableViolation) continue;
+
+    const { shortCircuit } = enforcePIIField(
+      parentKey,
+      childKey,
+      childValue,
+      childDef,
+      piiEnforcement,
+      errors,
+      logger
+    );
+    if (shortCircuit) continue;
+
     // Custom validator (per-field)
     const { invalid } = runCustomValidator(
       parentKey,
@@ -326,7 +362,16 @@ function validateObjectChildren(
 
     // Type-specific validation (string/number/boolean/object/array/ref)
     // This will recurse into nested objects via validateObjectField → validateObjectChildren
-    validateByType(parentKey, childKey, childValue, childDef, errors);
+    validateByType(
+      parentKey,
+      childKey,
+      childValue,
+      childDef,
+      errors,
+      existingChild,
+      piiEnforcement,
+      logger
+    );
   }
 }
 
@@ -335,7 +380,10 @@ function validateObjectField(
   key: string,
   value: any,
   def: any,
-  errors: string[]
+  errors: string[],
+  existing: Record<string, any> | undefined,
+  piiEnforcement: PIIEnforcement,
+  logger?: { warn: (msg: string) => void }
 ) {
   const path = parentKey ? `${parentKey}.${key}` : key;
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -343,7 +391,8 @@ function validateObjectField(
     return;
   }
   const objShape = getShape(def);
-  if (objShape) validateObjectChildren(path, value, objShape, errors);
+  if (objShape)
+    validateObjectChildren(path, value, objShape, errors, existing, piiEnforcement, logger);
 }
 
 function validateArrayOfStrings(
@@ -433,7 +482,10 @@ function validateArrayOfObjects(
   key: string,
   arr: any[],
   itemDef: any,
-  errors: string[]
+  errors: string[],
+  existing: any,
+  piiEnforcement: PIIEnforcement,
+  logger?: { warn: (msg: string) => void }
 ) {
   const path = parentKey ? `${parentKey}.${key}` : key;
 
@@ -450,11 +502,16 @@ function validateArrayOfObjects(
 
   arr.forEach((item, idx) => {
     const itemParent = `${path}[${idx}]`;
+    const existingItem = Array.isArray(existing) ? existing[idx] : undefined;
     for (const [childKey, childDef] of Object.entries(itemShape) as [
       string,
       FieldBuilder<any>
     ][]) {
       let childValue = (item as any)[childKey];
+      const existingChild =
+        existingItem && typeof existingItem === "object"
+          ? (existingItem as any)[childKey]
+          : undefined;
 
       const { value: withDefault, applied } = applyDefault(
         childDef,
@@ -475,6 +532,27 @@ function validateArrayOfObjects(
       );
       if (missing) continue;
 
+      const { immutableViolation } = checkImmutable(
+        itemParent,
+        childKey,
+        childValue,
+        childDef,
+        existingItem,
+        errors
+      );
+      if (immutableViolation) continue;
+
+      const { shortCircuit } = enforcePIIField(
+        itemParent,
+        childKey,
+        childValue,
+        childDef,
+        piiEnforcement,
+        errors,
+        logger
+      );
+      if (shortCircuit) continue;
+
       // Custom validator (path-aware)
       const { invalid } = runCustomValidator(
         itemParent,
@@ -486,7 +564,16 @@ function validateArrayOfObjects(
       if (invalid) continue;
 
       // Type-specific validation (recurses into nested object/array/ref)
-      validateByType(itemParent, childKey, childValue, childDef, errors);
+      validateByType(
+        itemParent,
+        childKey,
+        childValue,
+        childDef,
+        errors,
+        existingChild,
+        piiEnforcement,
+        logger
+      );
     }
   });
 }
@@ -496,7 +583,10 @@ function validateArrayField(
   key: string,
   value: any,
   def: any,
-  errors: string[]
+  errors: string[],
+  existing: any,
+  piiEnforcement: PIIEnforcement,
+  logger?: { warn: (msg: string) => void }
 ) {
   const path = parentKey ? `${parentKey}.${key}` : key;
   if (!Array.isArray(value)) {
@@ -511,7 +601,16 @@ function validateArrayField(
   if (itemType === "boolean")
     return validateArrayOfBooleans(parentKey, key, value, def.itemType, errors);
   if (itemType === "object")
-    return validateArrayOfObjects(parentKey, key, value, def.itemType, errors);
+    return validateArrayOfObjects(
+      parentKey,
+      key,
+      value,
+      def.itemType,
+      errors,
+      existing,
+      piiEnforcement,
+      logger
+    );
   if (itemType === "ref") {
     const expectedType = (def.itemType as any).refType;
     value.forEach((ref: any, idx: number) => {
@@ -530,14 +629,20 @@ function validateArrayField(
     });
     const refShape = getShape(def.itemType);
     if (refShape) {
+      const existingRefs = Array.isArray(existing) ? existing : [];
       value.forEach((ref: any, idx: number) => {
         if (ref && typeof ref === "object" && ref !== null) {
+          const existingRef = existingRefs[idx];
           for (const [childKey, childDef] of Object.entries(refShape) as [
             string,
             FieldBuilder<any>
           ][]) {
             const childPath = `${path}[${idx}].${childKey}`;
             let childValue = ref[childKey];
+            const existingChild =
+              existingRef && typeof existingRef === "object"
+                ? (existingRef as any)[childKey]
+                : undefined;
             const { value: withDefault, applied } = applyDefault(
               childDef,
               childValue
@@ -553,6 +658,28 @@ function validateArrayField(
               errors.push(`Missing required field: ${childPath}`);
               continue;
             }
+
+            const { immutableViolation } = checkImmutable(
+              `${path}[${idx}]`,
+              childKey,
+              childValue,
+              childDef,
+              existingRef,
+              errors
+            );
+            if (immutableViolation) continue;
+
+            const { shortCircuit } = enforcePIIField(
+              `${path}[${idx}]`,
+              childKey,
+              childValue,
+              childDef,
+              piiEnforcement,
+              errors,
+              logger
+            );
+            if (shortCircuit) continue;
+
             const childValidator = getValidator(childDef);
             if (
               childValidator &&
@@ -571,7 +698,10 @@ function validateArrayField(
               childKey,
               childValue,
               childDef,
-              errors
+              errors,
+              existingChild,
+              piiEnforcement,
+              logger
             );
           }
         }
@@ -587,7 +717,10 @@ function validateRefField(
   key: string,
   value: any,
   def: any,
-  errors: string[]
+  errors: string[],
+  _existing: any,
+  _piiEnforcement: PIIEnforcement,
+  _logger?: { warn: (msg: string) => void }
 ) {
   const path = parentKey ? `${parentKey}.${key}` : key;
   if (
@@ -608,14 +741,17 @@ function validateRefField(
   }
 }
 
-  function validateByType(
-    parentKey: string,
-    key: string,
-    value: any,
-    def: any,
-    errors: string[]
-  ) {
-    const path = parentKey ? `${parentKey}.${key}` : key;
+function validateByType(
+  parentKey: string,
+  key: string,
+  value: any,
+  def: any,
+  errors: string[],
+  existing: any,
+  piiEnforcement: PIIEnforcement,
+  logger?: { warn: (msg: string) => void }
+) {
+  const path = parentKey ? `${parentKey}.${key}` : key;
   switch (def.type) {
     case "string":
       return validateStringField(parentKey, key, value, def, errors);
@@ -624,11 +760,29 @@ function validateRefField(
     case "boolean":
       return validateBooleanField(parentKey, key, value, def, errors);
     case "object":
-      return validateObjectField(parentKey, key, value, def, errors);
+      return validateObjectField(
+        parentKey,
+        key,
+        value,
+        def,
+        errors,
+        existing,
+        piiEnforcement,
+        logger
+      );
     case "array":
-      return validateArrayField(parentKey, key, value, def, errors);
+      return validateArrayField(
+        parentKey,
+        key,
+        value,
+        def,
+        errors,
+        existing,
+        piiEnforcement,
+        logger
+      );
     case "ref":
-      return validateRefField(parentKey, key, value, def, errors);
+      return validateRefField(parentKey, key, value, def, errors, existing, piiEnforcement, logger);
     default:
       errors.push(`Unknown type for field ${path}: ${def.type}`);
   }
@@ -671,6 +825,7 @@ export function createSchema<S extends SchemaShape>(
     validate(input: unknown, existing?: Record<string, any>) {
       const errors: string[] = [];
       const result: any = {};
+      const piiMode: PIIEnforcement = options.piiEnforcement ?? "none";
 
       if (typeof input !== "object" || input === null) {
         return { valid: false, errors: ["Input must be an object"] } as any;
@@ -712,6 +867,8 @@ export function createSchema<S extends SchemaShape>(
       for (const key in schema._shape) {
         const def = schema._shape[key];
         let value = working[key];
+        const existingField =
+          existing && typeof existing === "object" ? (existing as any)[key] : undefined;
 
         if (!def) {
           errors.push(`Field definition missing for: ${key}`);
@@ -746,7 +903,7 @@ export function createSchema<S extends SchemaShape>(
           key,
           value,
           def,
-          options.piiEnforcement ?? "none",
+          piiMode,
           errors,
           console
         );
@@ -763,7 +920,7 @@ export function createSchema<S extends SchemaShape>(
             localErrors
           );
           if (!invalid) {
-            validateByType("", key, val, def, localErrors);
+            validateByType("", key, val, def, localErrors, existingField, piiMode, console);
           }
           return localErrors;
         };

@@ -36,6 +36,14 @@ describe("schema.ts – validator coverage", () => {
     version: "1.0.0",
     piiEnforcement: "strict",
   });
+  const NumberEnum = createSchema(
+    { n: field.number().enum([1, 2, 3]) },
+    "NumberEnum",
+    {
+      version: "1.0.0",
+      piiEnforcement: "strict",
+    }
+  );
   const BooleanField = createSchema({ b: field.boolean() }, "BooleanField", {
     version: "1.0.0",
     piiEnforcement: "strict",
@@ -108,6 +116,23 @@ describe("schema.ts – validator coverage", () => {
     expectInvalid(r, "Field is immutable: fixed");
   });
 
+  it("should fail when immutable nested field is modified", () => {
+    const S = createSchema(
+      {
+        profile: field.object({
+          id: field.string().immutable(),
+          name: field.string().optional(),
+        }),
+      },
+      "NestedImmutable",
+      { version: "1.0.0", piiEnforcement: "strict" }
+    );
+
+    const existing = { profile: { id: "A", name: "old" } };
+    const r = S.validate({ profile: { id: "B", name: "new" } }, existing);
+    expectInvalid(r, "Field is immutable: profile.id");
+  });
+
   // 4) High PII empty under strict (only if such flag exists)
   it("should fail when high PII required field is empty under strict enforcement", () => {
     const secret = field.string().PID({
@@ -123,6 +148,25 @@ describe("schema.ts – validator coverage", () => {
     });
     const r = S.validate({ secret: "" }); // empty string should trigger strict error
     expectInvalid(r, "High PII field must not be empty: secret");
+  });
+
+  it("should fail when high PII nested field is empty under strict enforcement", () => {
+    const S = createSchema(
+      {
+        profile: field.object({
+          secret: field.string().PID({
+            classification: "high",
+            action: "encrypt",
+            logHandling: "redact",
+            purpose: "nested pii test",
+          }),
+        }),
+      },
+      "NestedPII",
+      { version: "1.0.0", piiEnforcement: "strict" }
+    );
+    const r = S.validate({ profile: { secret: "" } });
+    expectInvalid(r, "High PII field must not be empty: profile.secret");
   });
 
   // 5) Custom field validator returns false
@@ -154,6 +198,10 @@ describe("schema.ts – validator coverage", () => {
   it("should fail when number field is not a number", () => {
     const result = NumberField.validate({ n: "1" as unknown as number });
     expectInvalid(result, "Field n must be number");
+  });
+  it("should fail when number field violates enum", () => {
+    const result = NumberEnum.validate({ n: 4 });
+    expectInvalid(result, "Field n must be one of: 1, 2, 3");
   });
 
   // 9) Boolean type mismatch
@@ -421,6 +469,11 @@ describe("schema.ts – validator coverage", () => {
 
   it("should pass when number field is a number", () => {
     const result = NumberField.validate({ n: 42 });
+    expectValid(result);
+  });
+
+  it("should pass when number field satisfies enum", () => {
+    const result = NumberEnum.validate({ n: 2 });
     expectValid(result);
   });
 
