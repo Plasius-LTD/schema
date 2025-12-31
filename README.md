@@ -1,7 +1,7 @@
 # @plasius/schema
 
 [![npm version](https://img.shields.io/npm/v/@plasius/schema.svg)](https://www.npmjs.com/package/@plasius/schema)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/Plasius-LTD/schema/ci.yml?branch=main&label=build&style=flat)](https://github.com/plasius/schema/actions/workflows/ci.yml)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/Plasius-LTD/schema/ci.yml?branch=main&label=build&style=flat)](https://github.com/Plasius-LTD/schema/actions/workflows/ci.yml)
 [![coverage](https://img.shields.io/codecov/c/github/Plasius-LTD/schema)](https://codecov.io/gh/Plasius-LTD/schema)
 [![License](https://img.shields.io/github/license/Plasius-LTD/schema)](./LICENSE)
 [![Code of Conduct](https://img.shields.io/badge/code%20of%20conduct-yes-blue.svg)](./CODE_OF_CONDUCT.md)
