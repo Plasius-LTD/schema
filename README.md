@@ -119,7 +119,7 @@ if (result.valid && result.errors.length == 0) {
   - Arrays of refs validate nested ref shapes (defaults, required fields, and validators) when provided.
   - Ref fields enforce their declared `refType` during validation, catching mismatches early.
   - PII helpers recurse through nested objects/arrays/refs so encrypted/hashed/cleared fields are handled throughout the structure.
-  - Validation deep-clones inputs before applying defaults, so caller-provided objects/arrays aren’t mutated.
+  - Validation deep-clones inputs before applying defaults, so caller-provided objects/arrays aren’t mutated and non-JSON-safe values (e.g., `Date`) are preserved.
 
 ### 4) Version enforcement in action
 

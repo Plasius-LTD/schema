@@ -239,4 +239,52 @@ describe("PII read/write symmetry for hashed fields", () => {
     expect(scrubbed.tags[0].labelHash).toBeNull();
     expect(scrubbed.owner.name).toBeNull();
   });
+
+  it("omits optional PII fields when missing instead of emitting null artifacts", () => {
+    const Optional = createSchema(
+      {
+        maybe: field
+          .string()
+          .PID({ classification: "high", action: "encrypt", logHandling: "redact" })
+          .optional(),
+        maybeHash: field
+          .string()
+          .PID({ classification: "low", action: "hash", logHandling: "pseudonym" })
+          .optional(),
+        maybeClear: field
+          .string()
+          .PID({ classification: "low", action: "clear", logHandling: "omit" })
+          .optional(),
+      },
+      "OptionalPII",
+      { version: "1.0.0", piiEnforcement: "strict" }
+    );
+
+    const encryptFn = (v: any) => `enc(${v})`;
+    const hashFn = (v: any) => `hash(${v})`;
+
+    const stored = Optional.prepareForStorage({}, encryptFn, hashFn);
+    expect(stored).toEqual({});
+
+    const read = Optional.prepareForRead(stored as any, (v) => v);
+    expect(read).toEqual({});
+
+    const scrubbed = Optional.scrubPiiForDelete(stored as any);
+    expect(scrubbed).toEqual({});
+  });
+
+  it("keeps type/id when sanitizing refs without nested shape", () => {
+    const RefSchema = createSchema(
+      { owner: field.ref("user") },
+      "RefLog",
+      { version: "1.0.0", piiEnforcement: "strict" }
+    );
+
+    const sanitized = RefSchema.sanitizeForLog(
+      { owner: { type: "user", id: "u1" } } as any,
+      (v) => `p(${v})`
+    );
+
+    expect(sanitized.owner).toEqual({ type: "user", id: "u1" });
+  });
 });

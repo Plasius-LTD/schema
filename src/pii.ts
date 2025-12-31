@@ -54,18 +54,19 @@ export function prepareForStorage(
 ): Record<string, any> {
   const build = (def: any, value: any, key: string, out: any) => {
     if (!def) return;
+    const isMissing = value === undefined || value === null;
 
     // Leaf handling with PII transforms
     if (def._pii?.action === "encrypt") {
-      out[key + "Encrypted"] = value === undefined ? value : encryptFn(value);
+      if (!isMissing) out[key + "Encrypted"] = encryptFn(value);
       return;
     }
     if (def._pii?.action === "hash") {
-      out[key + "Hash"] = value === undefined ? value : hashFn(value);
+      if (!isMissing) out[key + "Hash"] = hashFn(value);
       return;
     }
     if (def._pii?.action === "clear") {
-      out[key] = null;
+      if (!isMissing) out[key] = null;
       return;
     }
 
@@ -121,9 +122,15 @@ export function prepareForRead(
   const readValue = (def: any, key: string, container: any): any => {
     if (!def) return container?.[key];
     const action = def._pii?.action;
-    if (action === "encrypt") return decryptFn(container?.[key + "Encrypted"]);
-    if (action === "hash") return container?.[key + "Hash"];
-    if (action === "clear") return null;
+    if (action === "encrypt") {
+      const enc = container?.[key + "Encrypted"];
+      return enc === undefined ? undefined : decryptFn(enc);
+    }
+    if (action === "hash") {
+      const h = container?.[key + "Hash"];
+      return h === undefined ? undefined : h;
+    }
+    if (action === "clear") return container?.hasOwnProperty(key) ? null : undefined;
 
     if (def.type === "object" && def._shape) {
       const obj: any = {};
@@ -198,7 +205,7 @@ export function sanitizeForLog(
     }
 
     if (def.type === "ref") {
-      const ref: any = {};
+      const ref: any = value ? { type: value.type, id: value.id } : {};
       const refShape = def._shape;
       const src = value ?? {};
       if (refShape) {
@@ -206,6 +213,10 @@ export function sanitizeForLog(
           const child = visit(childDef, src[k]);
           if (child !== undefined) ref[k] = child;
         }
+      } else if (value) {
+        // no nested shape: keep original ref fields
+        ref.type = value.type;
+        ref.id = value.id;
       }
       return ref;
     }
@@ -268,45 +279,64 @@ export function scrubPiiForDelete(
     cur[path[path.length - 1]] = val;
   };
 
-  const visit = (def: any, value: any, path: Array<string | number>) => {
+  const visit = (
+    def: any,
+    host: any,
+    path: Array<string | number>,
+    keyName: string | number
+  ) => {
     if (!def) return;
+
     if (def._pii?.action === "encrypt") {
-      const targetKey = `${path[path.length - 1]}Encrypted`;
-      setAtPath(result, [...path.slice(0, -1), targetKey], null);
+      const targetKey = `${keyName}Encrypted`;
+      if (host && Object.prototype.hasOwnProperty.call(host, targetKey)) {
+        setAtPath(result, [...path.slice(0, -1), targetKey], null);
+      }
       return;
     }
     if (def._pii?.action === "hash") {
-      const targetKey = `${path[path.length - 1]}Hash`;
-      setAtPath(result, [...path.slice(0, -1), targetKey], null);
+      const targetKey = `${keyName}Hash`;
+      if (host && Object.prototype.hasOwnProperty.call(host, targetKey)) {
+        setAtPath(result, [...path.slice(0, -1), targetKey], null);
+      }
       return;
     }
     if (def._pii?.action === "clear") {
-      setAtPath(result, path, null);
+      if (host && Object.prototype.hasOwnProperty.call(host, keyName)) {
+        setAtPath(result, path, null);
+      }
       return;
     }
 
-    if (def.type === "object" && def._shape && value) {
+    if (def.type === "object" && def._shape) {
+      const obj = host?.[keyName];
       for (const [k, childDef] of Object.entries(def._shape)) {
-        visit(childDef, value[k], [...path, k]);
+        visit(childDef, obj, [...path, k], k);
       }
+      return;
     }
 
-    if (def.type === "array" && def.itemType && Array.isArray(value)) {
-      value.forEach((item, idx) => visit(def.itemType, item, [...path, idx]));
+    if (def.type === "array" && def.itemType) {
+      const arr = host?.[keyName];
+      if (Array.isArray(arr)) {
+        arr.forEach((item, idx) => visit(def.itemType, arr, [...path, idx], idx));
+      }
+      return;
     }
 
     if (def.type === "ref") {
       const refShape = def._shape;
-      if (refShape && value) {
+      const ref = host?.[keyName];
+      if (refShape && ref) {
         for (const [k, childDef] of Object.entries(refShape)) {
-          visit(childDef, value[k], [...path, k]);
+          visit(childDef, ref, [...path, k], k);
         }
       }
     }
   };
 
   for (const key in shape) {
-    visit(shape[key], stored?.[key], [key]);
+    visit(shape[key], stored, [key], key);
   }
 
   return result;

@@ -578,4 +578,25 @@ describe("schema.ts – validator coverage", () => {
     expect(result.value?.profile.prefs.theme).toBe("dark");
     expect(result.value?.tags?.[0].label).toBe("x");
   });
+
+  it("preserves non-JSON-safe values during validation (no stringify/parse)", () => {
+    const S = createSchema(
+      {
+        meta: field.object({
+          created: field
+            .object({})
+            .validator((v) => v instanceof Date)
+            .as<Date>(),
+        }),
+      },
+      "RichTypes",
+      { version: "1.0.0", piiEnforcement: "strict" }
+    );
+
+    const created = new Date();
+    const input: any = { meta: { created } };
+    const result = S.validate(input);
+    expect(result.valid).toBe(true);
+    expect(result.value?.meta.created).toBe(created);
+  });
 });

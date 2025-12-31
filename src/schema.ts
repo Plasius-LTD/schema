@@ -23,8 +23,23 @@ import { validateSemVer } from "./validation/version.SEMVER2.0.0.js";
 const globalSchemaRegistry = new Map<string, Schema<any>>();
 
 function deepClone<T>(value: T): T {
-  if (typeof structuredClone === "function") return structuredClone(value);
-  return JSON.parse(JSON.stringify(value));
+  const seen = new WeakMap();
+  const cloneAny = (val: any): any => {
+    if (val === null || typeof val !== "object") return val;
+    if (seen.has(val)) throw new TypeError("Cannot clone circular structures");
+    if (val instanceof Date) return val;
+    if (Array.isArray(val)) {
+      const arr: any[] = [];
+      seen.set(val, arr);
+      val.forEach((item) => arr.push(cloneAny(item)));
+      return arr;
+    }
+    const out: any = {};
+    seen.set(val, out);
+    for (const [k, v] of Object.entries(val)) out[k] = cloneAny(v);
+    return out;
+  };
+  return cloneAny(value);
 }
 
 function cmpSemver(a: string, b: string): number {
