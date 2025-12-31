@@ -57,7 +57,7 @@ export function prepareForStorage(
     value: any,
     key: string,
     out: any,
-    ctx: { parentKey?: string } = {}
+    ctx: { parentKey?: string; isArrayItem?: boolean } = {}
   ) => {
     if (!def) return;
     const isMissing = value === undefined || value === null;
@@ -299,11 +299,16 @@ export function scrubPiiForDelete(
     let cur = target;
     for (let i = 0; i < path.length - 1; i++) {
       const p = path[i];
-      if (cur[p] === undefined)
-        cur[p] = typeof path[i + 1] === "number" ? [] : {};
+      if (p === undefined) return;
+      if (cur[p] === undefined) {
+        const next = path[i + 1];
+        cur[p] = typeof next === "number" ? [] : {};
+      }
       cur = cur[p];
     }
-    cur[path[path.length - 1]] = val;
+    const last = path[path.length - 1];
+    if (last === undefined) return;
+    cur[last] = val;
   };
 
   const visit = (
@@ -316,6 +321,7 @@ export function scrubPiiForDelete(
 
     const applyPath = (targetKey: string) => {
       const last = path[path.length - 1];
+      if (last === undefined) return;
       if (typeof last === "number") {
         setAtPath(result, [...path, targetKey], null);
       } else {
