@@ -128,6 +128,7 @@ export const isoCurrencyCodes = new Set([
   "SEK",
   "SGD",
   "SHP",
+  "SLE",
   "SLL",
   "SOS",
   "SRD",

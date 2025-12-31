@@ -10,11 +10,12 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 ## [Unreleased]
 
 - **Added**
-  - (placeholder)
+  - Additional validator coverage for names, safe text, percentages, rich text, user IDs, languages (BCP47), and ISO country/currency codes.
 
 - **Changed**
   - README usage examples refreshed to match current `createSchema` signature, field helpers, and default-handling behavior.
   - Optionality tracking consolidated to a single flag (`isRequired`, default `true`) used across validation, descriptions, and type inference; `.optional()`/`.default()` set `isRequired` to `false`.
+  - Validation helpers re-export `validateLanguage` (BCP 47).
 
 - **Fixed**
   - Ref logging keeps `type/id` when no nested shape is provided.
@@ -34,6 +35,7 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - Numeric enums are enforced during validation instead of accepting out-of-range values.
   - Immutable flags are honored for nested object/array/ref children when validating updates against an existing entity.
   - PII strict/warn enforcement now applies to nested fields (objects, arrays, refs), blocking empty high-PII subfields.
+  - ISO 3166-1 list updated to include `PS`; ISO 4217 list updated to include `SLE` (while retaining `SLL` for legacy data).
 
 - **Security**
   - (placeholder)

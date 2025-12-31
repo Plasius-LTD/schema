@@ -119,6 +119,7 @@ if (result.valid && result.errors.length == 0) {
   - Arrays of refs validate nested ref shapes (defaults, required fields, and validators) when provided.
   - Ref fields enforce their declared `refType` during validation, catching mismatches early.
   - PII helpers recurse through nested objects/arrays/refs so encrypted/hashed/cleared fields are handled throughout the structure (including array items).
+  - ISO lists stay current (`PS` country code, `SLE` currency code) and the validation package exports `validateLanguage` for BCP 47 tags.
   - Numeric enums are enforced like string enums instead of accepting out-of-range values.
   - Immutable flags are honored on nested object/array/ref children when an existing entity is provided.
   - PII strict/warn enforcement runs on nested fields, preventing empty high-PII subfields from slipping through.

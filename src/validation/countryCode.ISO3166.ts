@@ -179,6 +179,7 @@ export const isoCountryCodes = new Set([
   "PM",
   "PN",
   "PR",
+  "PS",
   "PT",
   "PW",
   "PY",

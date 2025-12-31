@@ -11,3 +11,4 @@ export * from "./percentage.ISO80000-1.js";
 export * from "./richtext.OWASP.js";
 export * from "./name.OWASP.js";
 export * from "./user.MS-GOOGLE-APPLE.js";
+export * from "./languageCode.BCP47.js";
