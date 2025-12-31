@@ -10,6 +10,20 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 ## [Unreleased]
 
 - **Added**
+  - (placeholder)
+
+- **Changed**
+  - (placeholder)
+
+- **Fixed**
+  - (placeholder)
+
+- **Security**
+  - (placeholder)
+
+## [1.2.0] - 2025-12-31
+
+- **Added**
   - Additional validator coverage for names, safe text, percentages, rich text, user IDs, languages (BCP47), and ISO country/currency codes.
 
 - **Changed**
@@ -151,10 +165,11 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 ---
 
-[Unreleased]: https://github.com/Plasius-LTD/schema/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/Plasius-LTD/schema/compare/v1.2.0...HEAD
 [1.0.0]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.0
 [1.0.13]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.13
 [1.0.17]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.17
 [1.0.18]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.18
 [1.1.0]: https://github.com/Plasius-LTD/schema/releases/tag/v1.1.0
 [1.1.1]: https://github.com/Plasius-LTD/schema/releases/tag/v1.1.1
+[1.2.0]: https://github.com/Plasius-LTD/schema/releases/tag/v1.2.0
