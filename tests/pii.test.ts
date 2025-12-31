@@ -307,14 +307,49 @@ describe("PII read/write symmetry for hashed fields", () => {
     const hashFn = (v: any) => `hash(${v})`;
 
     const stored = ArrayPII.prepareForStorage({ tags: ["x", "y"] } as any, encryptFn, hashFn);
-    expect(stored.tags[0]).toEqual({ itemEncrypted: "enc(x)" });
-    expect(stored.tags[1]).toEqual({ itemEncrypted: "enc(y)" });
+    expect(stored.tags[0]).toEqual({ tagsEncrypted: "enc(x)" });
+    expect(stored.tags[1]).toEqual({ tagsEncrypted: "enc(y)" });
 
     const read = ArrayPII.prepareForRead(stored as any, (v) => v);
     expect(read.tags).toEqual(["enc(x)", "enc(y)"]);
 
     const scrubbed = ArrayPII.scrubPiiForDelete(stored as any);
-    expect(scrubbed.tags[0].itemEncrypted).toBeNull();
-    expect(scrubbed.tags[1].itemEncrypted).toBeNull();
+    expect(scrubbed.tags[0].tagsEncrypted).toBeNull();
+    expect(scrubbed.tags[1].tagsEncrypted).toBeNull();
+  });
+
+  it("retains non-PII fields on array items when scrubbing", () => {
+    const Mixed = createSchema(
+      {
+        tags: field.array(
+          field.object({
+            label: field.string().PID({
+              classification: "low",
+              action: "encrypt",
+              logHandling: "pseudonym",
+            }),
+            other: field.string(),
+          })
+        ),
+      },
+      "MixedArray",
+      { version: "1.0.0", piiEnforcement: "strict" }
+    );
+
+    const encryptFn = (v: any) => `enc(${v})`;
+    const hashFn = (v: any) => `hash(${v})`;
+
+    const stored = Mixed.prepareForStorage(
+      { tags: [{ label: "x", other: "keep" }] } as any,
+      encryptFn,
+      hashFn
+    );
+
+    expect(stored.tags[0].labelEncrypted).toBe("enc(x)");
+    expect(stored.tags[0].other).toBe("keep");
+
+    const scrubbed = Mixed.scrubPiiForDelete(stored as any);
+    expect(scrubbed.tags[0].labelEncrypted).toBeNull();
+    expect(scrubbed.tags[0].other).toBe("keep");
   });
 });

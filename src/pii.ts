@@ -52,7 +52,13 @@ export function prepareForStorage(
   encryptFn: (value: any) => string,
   hashFn: (value: any) => string
 ): Record<string, any> {
-  const build = (def: any, value: any, key: string, out: any) => {
+  const build = (
+    def: any,
+    value: any,
+    key: string,
+    out: any,
+    ctx: { parentKey?: string } = {}
+  ) => {
     if (!def) return;
     const isMissing = value === undefined || value === null;
 
@@ -73,23 +79,22 @@ export function prepareForStorage(
     if (def.type === "object" && def._shape) {
       const obj: any = {};
       for (const [childKey, childDef] of Object.entries(def._shape)) {
-        build(childDef, value?.[childKey], childKey, obj);
+        build(childDef, value?.[childKey], childKey, obj, { parentKey: key });
       }
       out[key] = obj;
       return;
     }
 
-  if (def.type === "array" && def.itemType && Array.isArray(value)) {
+    if (def.type === "array" && def.itemType && Array.isArray(value)) {
       out[key] = value.map((item: any) => {
         const obj: any = {};
-        // Use a stable child key for item transformation
-        build(def.itemType, item, "item", obj);
-        if (
-          Object.keys(obj).length === 1 &&
-          Object.prototype.hasOwnProperty.call(obj, "item") &&
-          typeof obj.item === "object"
-        ) {
-          return obj.item;
+        // Use the array field name for primitive items; unwrap object items
+        build(def.itemType, item, key, obj, {
+          parentKey: key,
+          isArrayItem: true,
+        });
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+          return obj[key];
         }
         return Object.keys(obj).length > 0 ? obj : item;
       });
@@ -101,7 +106,7 @@ export function prepareForStorage(
       const refShape = def._shape;
       if (refShape && value) {
         for (const [childKey, childDef] of Object.entries(refShape)) {
-          build(childDef, value[childKey], childKey, ref);
+          build(childDef, value[childKey], childKey, ref, { parentKey: key });
         }
       }
       out[key] = ref;
@@ -126,18 +131,27 @@ export function prepareForRead(
   stored: Record<string, any>,
   decryptFn: (value: string) => any
 ): Record<string, any> {
-  const readValue = (def: any, key: string, container: any): any => {
+  const readValue = (
+    def: any,
+    key: string,
+    container: any,
+    ctx: { parentKey?: string; isArrayItem?: boolean } = {}
+  ): any => {
     if (!def) return container?.[key];
     const action = def._pii?.action;
-  if (action === "encrypt") {
-      const enc = container?.[key + "Encrypted"] ?? container?.itemEncrypted;
+    if (action === "encrypt") {
+      const enc =
+        container?.[key + "Encrypted"] ??
+        container?.[`${ctx.parentKey ?? key}Encrypted`];
       return enc === undefined ? undefined : decryptFn(enc);
     }
     if (action === "hash") {
-      const h = container?.[key + "Hash"] ?? container?.itemHash;
+      const h =
+        container?.[key + "Hash"] ?? container?.[`${ctx.parentKey ?? key}Hash`];
       return h === undefined ? undefined : h;
     }
-    if (action === "clear") return container?.hasOwnProperty(key) ? null : undefined;
+    if (action === "clear")
+      return container?.hasOwnProperty(key) ? null : undefined;
 
     if (def.type === "object" && def._shape) {
       const obj: any = {};
@@ -151,10 +165,12 @@ export function prepareForRead(
       return obj;
     }
 
-  if (def.type === "array" && def.itemType) {
+    if (def.type === "array" && def.itemType) {
       const arr = container?.[key];
       if (!Array.isArray(arr)) return arr;
-      return arr.map((item: any) => readValue(def.itemType, "item", item));
+      return arr.map((item: any) =>
+        readValue(def.itemType, key, item, { parentKey: key, isArrayItem: true })
+      );
     }
 
     if (def.type === "ref") {
@@ -186,7 +202,11 @@ export function sanitizeForLog(
   data: Record<string, any>,
   pseudonymFn: (value: any) => string
 ): Record<string, any> {
-  const visit = (def: any, value: any): any => {
+  const visit = (
+    def: any,
+    value: any,
+    ctx: { parentKey?: string } = {}
+  ): any => {
     if (!def) return undefined;
     const handling = def._pii?.logHandling as PIILogHandling | undefined;
     if (handling === "omit") return undefined;
@@ -197,7 +217,7 @@ export function sanitizeForLog(
       const obj: any = {};
       const src = value ?? {};
       for (const [k, childDef] of Object.entries(def._shape)) {
-        const child = visit(childDef, src[k]);
+        const child = visit(childDef, src[k], { parentKey: k });
         if (child !== undefined) obj[k] = child;
       }
       return obj;
@@ -206,7 +226,7 @@ export function sanitizeForLog(
     if (def.type === "array" && def.itemType) {
       if (!Array.isArray(value)) return undefined;
       const arr = value
-        .map((v: any) => visit(def.itemType, v))
+        .map((v: any) => visit(def.itemType, v, { parentKey: ctx.parentKey }))
         .filter((v) => v !== undefined);
       return arr;
     }
@@ -338,7 +358,9 @@ export function scrubPiiForDelete(
     if (def.type === "array" && def.itemType) {
       const arr = host?.[keyName];
       if (Array.isArray(arr)) {
-        arr.forEach((item, idx) => visit(def.itemType, item, [...path, idx], "item"));
+        arr.forEach((item, idx) =>
+          visit(def.itemType, item, [...path, idx], keyName)
+        );
       }
       return;
     }
