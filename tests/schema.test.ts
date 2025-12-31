@@ -597,6 +597,7 @@ describe("schema.ts – validator coverage", () => {
     const input: any = { meta: { created } };
     const result = S.validate(input);
     expect(result.valid).toBe(true);
-    expect(result.value?.meta.created).toBe(created);
+    expect(result.value?.meta.created).not.toBe(created); // cloned
+    expect(result.value?.meta.created?.getTime()).toBe(created.getTime());
   });
 });

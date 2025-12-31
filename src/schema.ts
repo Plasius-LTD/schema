@@ -27,7 +27,7 @@ function deepClone<T>(value: T): T {
   const cloneAny = (val: any): any => {
     if (val === null || typeof val !== "object") return val;
     if (seen.has(val)) throw new TypeError("Cannot clone circular structures");
-    if (val instanceof Date) return val;
+    if (val instanceof Date) return new Date(val.getTime());
     if (Array.isArray(val)) {
       const arr: any[] = [];
       seen.set(val, arr);

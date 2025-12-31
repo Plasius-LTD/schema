@@ -287,4 +287,34 @@ describe("PII read/write symmetry for hashed fields", () => {
 
     expect(sanitized.owner).toEqual({ type: "user", id: "u1" });
   });
+
+  it("preserves PII array item transforms on write/read/scrub", () => {
+    const ArrayPII = createSchema(
+      {
+        tags: field.array(
+          field.string().PID({
+            classification: "low",
+            action: "encrypt",
+            logHandling: "pseudonym",
+          })
+        ),
+      },
+      "ArrayPII",
+      { version: "1.0.0", piiEnforcement: "strict" }
+    );
+
+    const encryptFn = (v: any) => `enc(${v})`;
+    const hashFn = (v: any) => `hash(${v})`;
+
+    const stored = ArrayPII.prepareForStorage({ tags: ["x", "y"] } as any, encryptFn, hashFn);
+    expect(stored.tags[0]).toEqual({ itemEncrypted: "enc(x)" });
+    expect(stored.tags[1]).toEqual({ itemEncrypted: "enc(y)" });
+
+    const read = ArrayPII.prepareForRead(stored as any, (v) => v);
+    expect(read.tags).toEqual(["enc(x)", "enc(y)"]);
+
+    const scrubbed = ArrayPII.scrubPiiForDelete(stored as any);
+    expect(scrubbed.tags[0].itemEncrypted).toBeNull();
+    expect(scrubbed.tags[1].itemEncrypted).toBeNull();
+  });
 });

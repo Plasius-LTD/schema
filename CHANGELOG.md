@@ -20,6 +20,7 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - Ref logging keeps `type/id` when no nested shape is provided.
   - Optional PII fields no longer emit null/undefined artifacts when absent during storage/read/scrub.
   - Validation deep-clone now preserves non-JSON-safe values (e.g., `Date`) without mutating caller data.
+  - PII helpers align array item encryption/hashing across storage/read/scrub, including nested object items.
   - Defaults are now applied during validation for top-level fields, nested objects, and array items.
   - `prepareForRead` now returns hashed values written by `prepareForStorage`, preventing loss of hash-only PII fields.
   - Composition validation now uses the item ref type for array-of-ref fields, correctly resolving and validating referenced entities.

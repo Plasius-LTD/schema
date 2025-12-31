@@ -79,12 +79,19 @@ export function prepareForStorage(
       return;
     }
 
-    if (def.type === "array" && def.itemType && Array.isArray(value)) {
+  if (def.type === "array" && def.itemType && Array.isArray(value)) {
       out[key] = value.map((item: any) => {
-        const tmp: any = {};
-        // use a fixed child key to reuse build logic
-        build(def.itemType, item, "item", tmp);
-        return tmp.item;
+        const obj: any = {};
+        // Use a stable child key for item transformation
+        build(def.itemType, item, "item", obj);
+        if (
+          Object.keys(obj).length === 1 &&
+          Object.prototype.hasOwnProperty.call(obj, "item") &&
+          typeof obj.item === "object"
+        ) {
+          return obj.item;
+        }
+        return Object.keys(obj).length > 0 ? obj : item;
       });
       return;
     }
@@ -122,32 +129,32 @@ export function prepareForRead(
   const readValue = (def: any, key: string, container: any): any => {
     if (!def) return container?.[key];
     const action = def._pii?.action;
-    if (action === "encrypt") {
-      const enc = container?.[key + "Encrypted"];
+  if (action === "encrypt") {
+      const enc = container?.[key + "Encrypted"] ?? container?.itemEncrypted;
       return enc === undefined ? undefined : decryptFn(enc);
     }
     if (action === "hash") {
-      const h = container?.[key + "Hash"];
+      const h = container?.[key + "Hash"] ?? container?.itemHash;
       return h === undefined ? undefined : h;
     }
     if (action === "clear") return container?.hasOwnProperty(key) ? null : undefined;
 
     if (def.type === "object" && def._shape) {
       const obj: any = {};
-      const source = container?.[key] ?? {};
+      const source =
+        container && Object.prototype.hasOwnProperty.call(container, key)
+          ? container[key]
+          : container ?? {};
       for (const [childKey, childDef] of Object.entries(def._shape)) {
         obj[childKey] = readValue(childDef, childKey, source);
       }
       return obj;
     }
 
-    if (def.type === "array" && def.itemType) {
+  if (def.type === "array" && def.itemType) {
       const arr = container?.[key];
       if (!Array.isArray(arr)) return arr;
-      return arr.map((item: any) => {
-        const tmp: any = { item };
-        return readValue(def.itemType, "item", tmp);
-      });
+      return arr.map((item: any) => readValue(def.itemType, "item", item));
     }
 
     if (def.type === "ref") {
@@ -287,17 +294,26 @@ export function scrubPiiForDelete(
   ) => {
     if (!def) return;
 
+    const applyPath = (targetKey: string) => {
+      const last = path[path.length - 1];
+      if (typeof last === "number") {
+        setAtPath(result, [...path, targetKey], null);
+      } else {
+        setAtPath(result, [...path.slice(0, -1), targetKey], null);
+      }
+    };
+
     if (def._pii?.action === "encrypt") {
       const targetKey = `${keyName}Encrypted`;
       if (host && Object.prototype.hasOwnProperty.call(host, targetKey)) {
-        setAtPath(result, [...path.slice(0, -1), targetKey], null);
+        applyPath(targetKey);
       }
       return;
     }
     if (def._pii?.action === "hash") {
       const targetKey = `${keyName}Hash`;
       if (host && Object.prototype.hasOwnProperty.call(host, targetKey)) {
-        setAtPath(result, [...path.slice(0, -1), targetKey], null);
+        applyPath(targetKey);
       }
       return;
     }
@@ -309,7 +325,10 @@ export function scrubPiiForDelete(
     }
 
     if (def.type === "object" && def._shape) {
-      const obj = host?.[keyName];
+      const obj =
+        host && Object.prototype.hasOwnProperty.call(host, keyName)
+          ? host[keyName]
+          : host;
       for (const [k, childDef] of Object.entries(def._shape)) {
         visit(childDef, obj, [...path, k], k);
       }
@@ -319,7 +338,7 @@ export function scrubPiiForDelete(
     if (def.type === "array" && def.itemType) {
       const arr = host?.[keyName];
       if (Array.isArray(arr)) {
-        arr.forEach((item, idx) => visit(def.itemType, arr, [...path, idx], idx));
+        arr.forEach((item, idx) => visit(def.itemType, item, [...path, idx], "item"));
       }
       return;
     }
