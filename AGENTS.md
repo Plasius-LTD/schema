@@ -24,3 +24,8 @@ This repo is `@plasius/schema`, a TypeScript schema definition and validation li
 ## Safety
 - Never include real PII in code, tests, examples, or logs.
 - Follow `SECURITY.md` for vulnerability reporting.
+
+## AI guidance
+- After any change, run relevant BDD/TDD tests when they exist; mention if skipped.
+- For fixes, add/update a BDD or TDD test that fails first and validate it passes after the fix when possible.
+- When adding or updating dependencies, prefer lazy-loading (dynamic import/code splitting) to avoid heavy first-load network use when applicable.
