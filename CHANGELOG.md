@@ -13,6 +13,7 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - Monthly GitHub Actions workflow to run `npm audit fix` on a schedule and open a PR with the results.
 
 - **Changed**
+  - Restore `main`, `module`, and `types` fields alongside the export map for broader CJS/ESM tool compatibility.
   - (placeholder)
 
 - **Fixed**
