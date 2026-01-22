@@ -1,6 +1,6 @@
 {
   "name": "@plasius/schema",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Entity schema definition & validation helpers for Plasius ecosystem",
   "type": "module",
   "sideEffects": false,
