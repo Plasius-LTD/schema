@@ -2,7 +2,7 @@
 
 ## Status
 
-- Proposed → Accepted
+- Proposed -> Accepted
 - Date: 2025-09-12
 - Version: 1.0
 - Supersedes: N/A

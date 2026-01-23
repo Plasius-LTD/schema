@@ -19,7 +19,8 @@ This repo is `@plasius/schema`, a TypeScript schema definition and validation li
 - Keep TypeScript `strict` and follow ESLint.
 - Add tests for new or changed behavior; keep coverage steady or improving.
 - Add TSDoc for exported types/functions.
-- Update `README.md`, `CHANGELOG.md`, and `docs/adrs/` when API or architecture changes.
+- Update `README.md` and `CHANGELOG.md` for user-facing changes.
+- Architectural changes require ADRs in `docs/adrs/` (or the repo ADRs folder); ensure a package-function ADR exists.
 
 ## Safety
 - Never include real PII in code, tests, examples, or logs.
