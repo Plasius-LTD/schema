@@ -22,6 +22,17 @@ npm install @plasius/schema
 
 ---
 
+## Demo
+
+```bash
+npm run build
+node demo/example.mjs
+```
+
+See `demo/README.md` for the local sanity-check scaffold.
+
+---
+
 ## Node.js Version
 
 This project uses Node.js **22** by default. The version is pinned in the [`.nvmrc`](./.nvmrc) file.
