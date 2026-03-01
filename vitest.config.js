@@ -5,16 +5,27 @@ export default defineConfig({
     environment: "node",
     globals: true,
     include: ["tests/**/*.test.{ts,tsx}"],
+    passWithNoTests: false,
     coverage: {
+      all: false,
       provider: "v8",
-      reporter: ["text", "lcov"],
+      reporter: ["text", "json", "html", "lcov"],
       reportsDirectory: "./coverage",
       exclude: [
         "tests/**",
         "dist/**",
+        "coverage/**",
+        "scripts/**",
         "**/*.config.{js,ts}",
         "**/.eslintrc.{js,cjs}",
+        "eslint.config.js",
       ],
+      thresholds: {
+        lines: 80,
+        functions: 80,
+        statements: 75,
+        branches: 60,
+      },
     },
   },
 });
