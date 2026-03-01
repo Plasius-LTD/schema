@@ -108,3 +108,13 @@ This repo is `@plasius/schema`, a TypeScript schema definition and validation li
 - Cross-repo rule: when one story requires changes in multiple repositories/packages, create one linked task per affected repository/package.
 - Supersession scope: this addendum overrides only the hierarchy/location parts of the prior Step 5 rule; all other Step 5 guidance remains active.
 
+## Dual Module Packaging Standard (Added 2026-03-01)
+- Applies to all `@plasius/*` packages built from this template.
+- Preferred dual-build output under `type: module`:
+  - ESM entrypoint: `dist/index.js`
+  - CJS entrypoint: `dist/index.cjs`
+- If a package emits CJS as `dist-cjs/*.js` instead of `.cjs`, it MUST:
+  - generate `dist-cjs/package.json` with `{ "type": "commonjs" }` during build;
+  - validate that metadata in `pack:check`;
+  - validate packed tarball includes `dist-cjs/package.json`.
+- `prepublishOnly` MUST run both build and `pack:check` to block publish regressions.

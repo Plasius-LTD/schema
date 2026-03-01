@@ -13,10 +13,10 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - (placeholder)
 
 - **Changed**
-  - (placeholder)
+  - Added template-level dual-module packaging policy that mandates runtime-safe CommonJS boundaries when emitting `dist-cjs/*.js` under `type: module`.
 
 - **Fixed**
-  - (placeholder)
+  - Established publish-time guardrails (`build` + `pack:check`) in template governance to prevent dual-module regressions in downstream `@plasius/*` packages.
 
 - **Security**
   - (placeholder)
