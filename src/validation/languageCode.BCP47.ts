@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/consistent-type-assertions */
-
 /**
  * ISO 639-1 language codes (two-letter).
  * Tip: Keep this list as source of truth for supported languages in your app.

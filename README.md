@@ -20,6 +20,14 @@ Apache-2.0. ESM + CJS builds. TypeScript types included.
 npm install @plasius/schema
 ```
 
+## Packaging policy (template baseline)
+
+`@plasius/schema` is the baseline template for new `@plasius/*` packages.
+Dual-module packages should prefer `.cjs` outputs for CommonJS. If a package
+uses `dist-cjs/*.js` with `type: module`, it must generate
+`dist-cjs/package.json` with `{ "type": "commonjs" }` and validate this in
+`pack:check` before publish.
+
 ---
 
 ## Demo
