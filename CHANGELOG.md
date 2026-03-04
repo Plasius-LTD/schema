@@ -13,6 +13,20 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - (placeholder)
 
 - **Changed**
+  - (placeholder)
+
+- **Fixed**
+  - (placeholder)
+
+- **Security**
+  - (placeholder)
+
+## [1.2.5] - 2026-03-04
+
+- **Added**
+  - (placeholder)
+
+- **Changed**
   - Added template-level dual-module packaging policy that mandates runtime-safe CommonJS boundaries when emitting `dist-cjs/*.js` under `type: module`.
 
 - **Fixed**
@@ -194,7 +208,7 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 ---
 
-[Unreleased]: https://github.com/Plasius-LTD/schema/compare/v1.2.2...HEAD
+[Unreleased]: https://github.com/Plasius-LTD/schema/compare/v1.2.5...HEAD
 [1.0.0]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.0
 [1.0.13]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.13
 [1.0.17]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.17
@@ -218,3 +232,4 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 - **Security**
   - (placeholder)
 [1.2.2]: https://github.com/Plasius-LTD/schema/releases/tag/v1.2.2
+[1.2.5]: https://github.com/Plasius-LTD/schema/releases/tag/v1.2.5
