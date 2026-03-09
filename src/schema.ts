@@ -7,6 +7,7 @@ import {
   PIIEnforcement,
   SchemaUpgradeResult,
   SchemaUpgradeSpec,
+  SerializeOptions,
 } from "./types.js";
 import { field } from "./field.js";
 import { PIIAction, PIIClassification, PIILogHandling } from "./pii.js";
@@ -41,6 +42,113 @@ function deepClone<T>(value: T): T {
     return out;
   };
   return cloneAny(value);
+}
+
+function shouldIncludeField(def: any, options: SerializeOptions): boolean {
+  return options.includeInternal === true || (def?._exposure ?? "public") !== "internal";
+}
+
+function serializeFieldValue(
+  def: any,
+  value: any,
+  options: SerializeOptions
+): any {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null) {
+    return null;
+  }
+
+  switch (def?.type) {
+    case "string":
+    case "number":
+    case "boolean":
+      return deepClone(value);
+    case "ref": {
+      if (typeof value !== "object" || value === null || Array.isArray(value)) {
+        return deepClone(value);
+      }
+
+      const shape = getShape(def);
+      if (!shape || Object.keys(shape).length === 0) {
+        return deepClone(value);
+      }
+
+      const serializedRef: Record<string, any> = {};
+      if (typeof value.type === "string") {
+        serializedRef.type = value.type;
+      }
+      if (typeof value.id === "string") {
+        serializedRef.id = value.id;
+      }
+
+      for (const [childKey, childDef] of Object.entries(shape)) {
+        if (!shouldIncludeField(childDef, options)) {
+          continue;
+        }
+        if (!Object.prototype.hasOwnProperty.call(value, childKey)) {
+          continue;
+        }
+
+        const serializedChild = serializeFieldValue(
+          childDef,
+          value[childKey],
+          options
+        );
+        if (serializedChild !== undefined) {
+          serializedRef[childKey] = serializedChild;
+        }
+      }
+
+      return serializedRef;
+    }
+    case "object": {
+      if (typeof value !== "object" || value === null || Array.isArray(value)) {
+        return deepClone(value);
+      }
+
+      const shape = getShape(def);
+      if (!shape || Object.keys(shape).length === 0) {
+        return deepClone(value);
+      }
+
+      const serializedObject: Record<string, any> = {};
+      for (const [childKey, childDef] of Object.entries(shape)) {
+        if (!shouldIncludeField(childDef, options)) {
+          continue;
+        }
+        if (!Object.prototype.hasOwnProperty.call(value, childKey)) {
+          continue;
+        }
+
+        const serializedChild = serializeFieldValue(
+          childDef,
+          value[childKey],
+          options
+        );
+        if (serializedChild !== undefined) {
+          serializedObject[childKey] = serializedChild;
+        }
+      }
+
+      return serializedObject;
+    }
+    case "array": {
+      if (!Array.isArray(value)) {
+        return deepClone(value);
+      }
+
+      if (!def.itemType) {
+        return deepClone(value);
+      }
+
+      return value.map((item) => serializeFieldValue(def.itemType, item, options));
+    }
+    default:
+      return deepClone(value);
+  }
 }
 
 function cmpSemver(a: string, b: string): number {
@@ -1157,6 +1265,33 @@ export function createSchema<S extends SchemaShape>(
       return store;
     },
 
+    serialize(
+      input: Record<string, any>,
+      options: SerializeOptions = {}
+    ): Record<string, any> {
+      if (typeof input !== "object" || input === null) {
+        return {};
+      }
+
+      const serialized: Record<string, any> = {};
+      for (const [key, def] of Object.entries(schema._shape)) {
+        if (!shouldIncludeField(def, options)) {
+          continue;
+        }
+
+        if (!Object.prototype.hasOwnProperty.call(input, key)) {
+          continue;
+        }
+
+        const value = serializeFieldValue(def, (input as any)[key], options);
+        if (value !== undefined) {
+          serialized[key] = value;
+        }
+      }
+
+      return serialized;
+    },
+
     /**
      * Transforms an input object for persistence by applying PII protection
      * according to field annotations (e.g., encryption and hashing).
@@ -1252,6 +1387,7 @@ export function createSchema<S extends SchemaShape>(
           refType: (def as any).refType ?? null,
           pii:
             !def._pii || def._pii.classification === "none" ? null : def._pii,
+          exposure: def._exposure ?? "public",
         };
       }
 
@@ -1299,6 +1435,7 @@ export function renderSchemaDescription(
     description: string;
     deprecated: boolean;
     pii?: string;
+    exposure: "public" | "internal";
   }>;
 } {
   const meta = schema.describe();
@@ -1311,6 +1448,7 @@ export function renderSchemaDescription(
       description: def.description,
       deprecated: def.deprecated,
       pii: def.pii ? def.pii.classification : undefined,
+      exposure: def.exposure,
     })),
   };
 }

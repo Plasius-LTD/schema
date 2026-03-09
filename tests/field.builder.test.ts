@@ -9,6 +9,14 @@ import { createSchema } from "../src/schema";
  */
 
 describe("schema field upgrade flow", () => {
+  it("preserves exposure metadata when cloning field builders", () => {
+    const internalField = field.string().internal();
+    const clonedField = internalField.as<string | null>();
+
+    expect(internalField._exposure).toBe("internal");
+    expect(clonedField._exposure).toBe("internal");
+  });
+
   it("upgrades old displayName string → new object shape", () => {
     const userV2 = createSchema(
       {

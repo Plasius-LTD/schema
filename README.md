@@ -90,6 +90,7 @@ const UserFields = {
 Common methods (non‑exhaustive): `.required()`, `.optional()`, `.default(v|fn)`, `.description(text)`, and type‑specific helpers like `.email()`, `.uuid()`, `.min()`, `.max()`, `.enum([...])`.
 Defaults are applied during validation when inputs are missing/`undefined`.
 Fields are required by default; call `.optional()` (or provide `.default()`) to allow omission.
+Use `.internal()` or `.exposure("internal")` on fields that the server may validate/store but must not include in client-facing payloads.
 
 ### 2) Create a **versioned** schema (enforces `type` + `version`)
 
@@ -143,6 +144,47 @@ if (result.valid && result.errors.length == 0) {
   - Immutable flags are honored on nested object/array/ref children when an existing entity is provided.
   - PII strict/warn enforcement runs on nested fields, preventing empty high-PII subfields from slipping through.
   - Validation deep-clones inputs before applying defaults, so caller-provided objects/arrays aren’t mutated and non-JSON-safe values (e.g., `Date`) are preserved.
+
+### 3b) Serialize only client-safe fields
+
+Schema serialization is separate from validation. `serialize()` keeps only schema-known fields and drops fields marked `.internal()` unless explicitly requested.
+
+```ts
+const PersistedUserSchema = createSchema(
+  {
+    id: field.string(),
+    partitionKey: field.string().internal(),
+    email: field.email(),
+    audit: field.object({
+      createdBy: field.string().internal(),
+      createdAt: field.dateTimeISO(),
+    }),
+  },
+  "persisted-user",
+  { version: "1.0.0", piiEnforcement: "strict" }
+);
+
+const publicPayload = PersistedUserSchema.serialize({
+  type: "persisted-user",
+  version: "1.0.0",
+  id: "123",
+  partitionKey: "tenant-a",
+  email: "alice@example.com",
+  audit: {
+    createdBy: "admin-1",
+    createdAt: "2026-03-09T00:00:00.000Z",
+  },
+  _rid: "cosmos-only",
+});
+
+// => {
+//   type: "persisted-user",
+//   version: "1.0.0",
+//   id: "123",
+//   email: "alice@example.com",
+//   audit: { createdAt: "2026-03-09T00:00:00.000Z" }
+// }
+```
 
 ### 4) Version enforcement in action
 

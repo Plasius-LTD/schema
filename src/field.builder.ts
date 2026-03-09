@@ -3,6 +3,8 @@ type FieldType = "string" | "number" | "boolean" | "object" | "array" | "ref";
 import { type PII } from "./pii.js";
 import { getSchemaForType } from "./schema.js";
 
+export type FieldExposure = "public" | "internal";
+
 export class FieldBuilder<TExternal = unknown, TInternal = TExternal> {
   _type!: TExternal;
   _storageType!: TInternal;
@@ -31,6 +33,7 @@ export class FieldBuilder<TExternal = unknown, TInternal = TExternal> {
     logHandling: "plain",
     purpose: "an ordinary value",
   };
+  _exposure: FieldExposure = "public";
   enumValues?: readonly TInternal[];
 
   constructor(
@@ -54,6 +57,19 @@ export class FieldBuilder<TExternal = unknown, TInternal = TExternal> {
   system(): FieldBuilder<TExternal, TInternal> {
     this.isSystem = true;
     return this;
+  }
+
+  exposure(exposure: FieldExposure): FieldBuilder<TExternal, TInternal> {
+    this._exposure = exposure;
+    return this;
+  }
+
+  internal(): FieldBuilder<TExternal, TInternal> {
+    return this.exposure("internal");
+  }
+
+  public(): FieldBuilder<TExternal, TInternal> {
+    return this.exposure("public");
   }
 
   required(): FieldBuilder<TExternal, TInternal> {
@@ -228,6 +244,7 @@ export class FieldBuilder<TExternal = unknown, TInternal = TExternal> {
     clone._description = this._description;
     clone._version = this._version;
     clone._pii = this._pii;
+    clone._exposure = this._exposure;
     clone._validator = this._validator as any;
     clone._default = this._default as any;
     clone._upgrade = this._upgrade;

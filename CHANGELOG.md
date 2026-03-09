@@ -10,13 +10,14 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 ## [Unreleased]
 
 - **Added**
-  - (placeholder)
+  - Added field exposure metadata (`.exposure(...)`, `.internal()`, `.public()`) for separating validation/storage concerns from client-facing serialization.
+  - Added schema-driven `serialize()` support that strips unknown fields and omits `internal` fields by default.
 
 - **Changed**
-  - (placeholder)
+  - Schema descriptions and rendered schema metadata now include field exposure information.
 
 - **Fixed**
-  - (placeholder)
+  - Prevented server-only fields from being treated as implicitly safe for client responses when callers serialize entities through the schema contract.
 
 - **Security**
   - (placeholder)

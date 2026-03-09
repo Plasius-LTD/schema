@@ -1,4 +1,4 @@
-import FieldBuilder from "./field.builder.js";
+import FieldBuilder, { type FieldExposure } from "./field.builder.js";
 import { Infer } from "./infer.js";
 import { PII, PIIAction, PIIClassification, PIILogHandling } from "./pii.js";
 
@@ -73,6 +73,11 @@ export interface SchemaOptions {
   piiEnforcement?: PIIEnforcement; // How should PII be enforced?
   schemaUpgrade?: SchemaUpgradeStep[] | SchemaUpgradeFunction | undefined; // Optional schema-level upgrader (single function or cascade steps)
 }
+
+export interface SerializeOptions {
+  includeInternal?: boolean;
+}
+
 export type SchemaShape = Record<string, FieldBuilder<any>>;
 
 export interface FieldDefinition<T = unknown> {
@@ -91,6 +96,7 @@ export interface FieldDefinition<T = unknown> {
   enum?: string[];
   _shape?: SchemaShape;
   pii?: PII;
+  exposure?: FieldExposure;
   validator?: (value: any) => boolean;
 }
 
@@ -138,6 +144,11 @@ export interface Schema<T extends SchemaShape> {
     entity: Infer<T>,
     options: ValidateCompositionOptions
   ) => Promise<void>;
+
+  serialize: (
+    input: Record<string, any>,
+    options?: SerializeOptions
+  ) => Record<string, any>;
 
   //// Optional methods for schema metadata
 
@@ -194,6 +205,7 @@ export interface Schema<T extends SchemaShape> {
         enum: string[] | null;
         refType: string | null;
         pii: PII | null;
+        exposure: FieldExposure;
       }
     >;
   };

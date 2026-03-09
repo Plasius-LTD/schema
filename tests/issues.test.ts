@@ -127,5 +127,99 @@ describe("Known issues coverage", () => {
     expect(meta.shape.plain.refType).toBeNull();
     expect(meta.shape.plain.pii).toBeNull();
     expect(meta.shape.plain.deprecatedVersion).toBeNull();
+    expect(meta.shape.plain.exposure).toBe("public");
+  });
+
+  it("serializes only schema-known public fields by default", () => {
+    const S = createSchema(
+      {
+        id: field.string(),
+        partitionKey: field.string().internal(),
+        profile: field.object({
+          displayName: field.string(),
+          audit: field.object({
+            createdBy: field.string().internal(),
+            note: field.string(),
+          }),
+        }),
+        items: field.array(
+          field.object({
+            name: field.string(),
+            secret: field.string().internal(),
+          })
+        ),
+      },
+      "SerializePublic",
+      { version: "1.0.0", piiEnforcement: "strict" }
+    );
+
+    const serialized = S.serialize({
+      type: "SerializePublic",
+      version: "1.0.0",
+      id: "user-1",
+      partitionKey: "tenant-a",
+      profile: {
+        displayName: "Ada",
+        audit: {
+          createdBy: "admin-1",
+          note: "kept",
+        },
+        ignored: true,
+      },
+      items: [
+        {
+          name: "first",
+          secret: "hidden",
+          ignored: "drop",
+        },
+      ],
+      ignoredTopLevel: "drop",
+    });
+
+    expect(serialized).toEqual({
+      type: "SerializePublic",
+      version: "1.0.0",
+      id: "user-1",
+      profile: {
+        displayName: "Ada",
+        audit: {
+          note: "kept",
+        },
+      },
+      items: [
+        {
+          name: "first",
+        },
+      ],
+    });
+  });
+
+  it("can include internal fields when explicitly requested", () => {
+    const S = createSchema(
+      {
+        id: field.string(),
+        partitionKey: field.string().internal(),
+      },
+      "SerializeInternal",
+      { version: "1.0.0", piiEnforcement: "strict" }
+    );
+
+    const serialized = S.serialize(
+      {
+        type: "SerializeInternal",
+        version: "1.0.0",
+        id: "user-1",
+        partitionKey: "tenant-a",
+        extra: "drop",
+      },
+      { includeInternal: true }
+    );
+
+    expect(serialized).toEqual({
+      type: "SerializeInternal",
+      version: "1.0.0",
+      id: "user-1",
+      partitionKey: "tenant-a",
+    });
   });
 });
