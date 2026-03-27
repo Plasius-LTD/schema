@@ -1,6 +1,7 @@
 import FieldBuilder, { type FieldExposure } from "./field.builder.js";
 import { Infer } from "./infer.js";
 import { PII, PIIAction, PIIClassification, PIILogHandling } from "./pii.js";
+import type { FieldValidator, ValidationIssue } from "./validation.types.js";
 
 export type FieldTypeMap = {
   string: string;
@@ -97,7 +98,7 @@ export interface FieldDefinition<T = unknown> {
   _shape?: SchemaShape;
   pii?: PII;
   exposure?: FieldExposure;
-  validator?: (value: any) => boolean;
+  validator?: FieldValidator<T>;
 }
 
 export interface ValidateCompositionOptions {
@@ -223,6 +224,7 @@ export interface ValidationResult<T> {
   valid: boolean;
   value?: DeepReadonly<T>;
   errors?: string[];
+  issues?: ValidationIssue[];
 }
 
 export type RefEntityId<T extends string = string> = {

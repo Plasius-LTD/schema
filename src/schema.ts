@@ -9,6 +9,11 @@ import {
   SchemaUpgradeSpec,
   SerializeOptions,
 } from "./types.js";
+import type {
+  FieldValidatorResult,
+  ValidationIssue,
+  ValidationIssueInput,
+} from "./validation.types.js";
 import { field } from "./field.js";
 import { PIIAction, PIIClassification, PIILogHandling } from "./pii.js";
 import {
@@ -277,12 +282,58 @@ function isOptional(def: any): boolean {
   return def?.isRequired === false;
 }
 
-function getValidator(def: any): ((v: any) => boolean) | undefined {
+function getValidator(def: any): ((v: any) => FieldValidatorResult) | undefined {
   return def?._validator ?? undefined;
 }
 
 function getShape(def: any): Record<string, any> | undefined {
   return def?._shape ?? def?.shape ?? undefined;
+}
+
+function normalizeValidationIssue(
+  path: string,
+  issue: string | ValidationIssueInput,
+  defaultCode: string
+): ValidationIssue {
+  if (typeof issue === "string") {
+    return {
+      path,
+      code: defaultCode,
+      message: issue,
+    };
+  }
+
+  return {
+    path: issue.path ?? path,
+    code: issue.code || defaultCode,
+    message: issue.message,
+  };
+}
+
+function normalizeValidatorIssues(
+  path: string,
+  result: FieldValidatorResult,
+  defaultCode: string
+): ValidationIssue[] {
+  if (result === true) {
+    return [];
+  }
+
+  if (result === false) {
+    return [
+      {
+        path,
+        code: defaultCode,
+        message: `Invalid value for field: ${path}`,
+      },
+    ];
+  }
+
+  if (Array.isArray(result)) {
+    return result.map((issue) => normalizeValidationIssue(path, issue, defaultCode));
+  }
+
+  return [normalizeValidationIssue(path, result, defaultCode)];
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -332,14 +383,18 @@ function runCustomValidator(
   key: string,
   value: any,
   def: any,
-  errors: string[]
+  errors: string[],
+  issues?: ValidationIssue[]
 ): { invalid: boolean } {
   const validator = getValidator(def);
   if (validator && value !== undefined && value !== null) {
-    const valid = validator(value);
-    if (!valid) {
-      const path = parentKey ? `${parentKey}.${key}` : key;
-      errors.push(`Invalid value for field: ${path}`);
+    const path = parentKey ? `${parentKey}.${key}` : key;
+    const normalizedIssues = normalizeValidatorIssues(path, validator(value), "invalid_value");
+    if (normalizedIssues.length > 0) {
+      errors.push(...normalizedIssues.map((issue) => issue.message));
+      if (issues) {
+        issues.push(...normalizedIssues);
+      }
       return { invalid: true };
     }
   }
@@ -408,6 +463,7 @@ function validateObjectChildren(
   obj: any,
   shape: Record<string, any>,
   errors: string[],
+  issues: ValidationIssue[],
   existing: Record<string, any> | undefined,
   piiEnforcement: PIIEnforcement,
   logger?: { warn: (msg: string) => void }
@@ -464,7 +520,8 @@ function validateObjectChildren(
       childKey,
       childValue,
       childDef,
-      errors
+      errors,
+      issues
     );
     if (invalid) continue;
 
@@ -476,6 +533,7 @@ function validateObjectChildren(
       childValue,
       childDef,
       errors,
+      issues,
       existingChild,
       piiEnforcement,
       logger
@@ -489,6 +547,7 @@ function validateObjectField(
   value: any,
   def: any,
   errors: string[],
+  issues: ValidationIssue[],
   existing: Record<string, any> | undefined,
   piiEnforcement: PIIEnforcement,
   logger?: { warn: (msg: string) => void }
@@ -500,7 +559,7 @@ function validateObjectField(
   }
   const objShape = getShape(def);
   if (objShape)
-    validateObjectChildren(path, value, objShape, errors, existing, piiEnforcement, logger);
+    validateObjectChildren(path, value, objShape, errors, issues, existing, piiEnforcement, logger);
 }
 
 function validateArrayOfStrings(
@@ -591,6 +650,7 @@ function validateArrayOfObjects(
   arr: any[],
   itemDef: any,
   errors: string[],
+  issues: ValidationIssue[],
   existing: any,
   piiEnforcement: PIIEnforcement,
   logger?: { warn: (msg: string) => void }
@@ -667,7 +727,8 @@ function validateArrayOfObjects(
         childKey,
         childValue,
         childDef,
-        errors
+        errors,
+        issues
       );
       if (invalid) continue;
 
@@ -678,6 +739,7 @@ function validateArrayOfObjects(
         childValue,
         childDef,
         errors,
+        issues,
         existingChild,
         piiEnforcement,
         logger
@@ -692,6 +754,7 @@ function validateArrayField(
   value: any,
   def: any,
   errors: string[],
+  issues: ValidationIssue[],
   existing: any,
   piiEnforcement: PIIEnforcement,
   logger?: { warn: (msg: string) => void }
@@ -715,6 +778,7 @@ function validateArrayField(
       value,
       def.itemType,
       errors,
+      issues,
       existing,
       piiEnforcement,
       logger
@@ -794,9 +858,14 @@ function validateArrayField(
               childValue !== undefined &&
               childValue !== null
             ) {
-              const valid = childValidator(childValue);
-              if (!valid) {
-                errors.push(`Invalid value for field: ${childPath}`);
+              const normalizedIssues = normalizeValidatorIssues(
+                childPath,
+                childValidator(childValue),
+                "invalid_value"
+              );
+              if (normalizedIssues.length > 0) {
+                errors.push(...normalizedIssues.map((issue) => issue.message));
+                issues.push(...normalizedIssues);
                 continue;
               }
             }
@@ -807,6 +876,7 @@ function validateArrayField(
               childValue,
               childDef,
               errors,
+              issues,
               existingChild,
               piiEnforcement,
               logger
@@ -855,6 +925,7 @@ function validateByType(
   value: any,
   def: any,
   errors: string[],
+  issues: ValidationIssue[],
   existing: any,
   piiEnforcement: PIIEnforcement,
   logger?: { warn: (msg: string) => void }
@@ -874,6 +945,7 @@ function validateByType(
         value,
         def,
         errors,
+        issues,
         existing,
         piiEnforcement,
         logger
@@ -885,6 +957,7 @@ function validateByType(
         value,
         def,
         errors,
+        issues,
         existing,
         piiEnforcement,
         logger
@@ -932,6 +1005,7 @@ export function createSchema<S extends SchemaShape>(
     // 🔗 Validate input against the schema
     validate(input: unknown, existing?: Record<string, any>) {
       const errors: string[] = [];
+      const issues: ValidationIssue[] = [];
       const result: any = {};
       const piiMode: PIIEnforcement = options.piiEnforcement ?? "none";
 
@@ -1020,16 +1094,19 @@ export function createSchema<S extends SchemaShape>(
         // A local validator for this field that returns errors instead of pushing into the outer array
         const validateField = (val: any): string[] => {
           const localErrors: string[] = [];
+          const localIssues: ValidationIssue[] = [];
           const { invalid } = runCustomValidator(
             "",
             key,
             val,
             def,
-            localErrors
+            localErrors,
+            localIssues
           );
           if (!invalid) {
-            validateByType("", key, val, def, localErrors, existingField, piiMode, console);
+            validateByType("", key, val, def, localErrors, localIssues, existingField, piiMode, console);
           }
+          issues.push(...localIssues);
           return localErrors;
         };
 
@@ -1094,6 +1171,7 @@ export function createSchema<S extends SchemaShape>(
         valid: errors.length === 0,
         value: result as Infer<S>,
         errors,
+        issues,
       };
     },
 

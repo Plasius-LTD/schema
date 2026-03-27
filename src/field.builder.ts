@@ -2,8 +2,20 @@ type FieldType = "string" | "number" | "boolean" | "object" | "array" | "ref";
 
 import { type PII } from "./pii.js";
 import { getSchemaForType } from "./schema.js";
+import type { FieldValidator } from "./validation.types.js";
 
 export type FieldExposure = "public" | "internal";
+
+function mergeValidatorResult(
+  previousResult: ReturnType<FieldValidator>,
+  nextValid: boolean,
+): ReturnType<FieldValidator> {
+  if (previousResult !== true) {
+    return previousResult;
+  }
+
+  return nextValid;
+}
 
 export class FieldBuilder<TExternal = unknown, TInternal = TExternal> {
   _type!: TExternal;
@@ -11,7 +23,7 @@ export class FieldBuilder<TExternal = unknown, TInternal = TExternal> {
   isSystem = false;
   isImmutable = false;
   isRequired = true;
-  _validator?: (value: any) => boolean;
+  _validator?: FieldValidator<TInternal>;
   _description: string = "";
   _version: string = "1.0.0";
   _default?: TInternal | (() => TInternal);
@@ -83,7 +95,7 @@ export class FieldBuilder<TExternal = unknown, TInternal = TExternal> {
   }
 
   validator(
-    fn: (value: TInternal) => boolean
+    fn: FieldValidator<TInternal>
   ): FieldBuilder<TExternal, TInternal> {
     this._validator = fn;
     return this;
@@ -146,19 +158,19 @@ export class FieldBuilder<TExternal = unknown, TInternal = TExternal> {
       const prevValidator = this._validator;
       this._validator = (value: any) => {
         const valid = typeof value === "number" && value >= min;
-        return prevValidator ? prevValidator(value) && valid : valid;
+        return prevValidator ? mergeValidatorResult(prevValidator(value), valid) : valid;
       };
     } else if (this.type === "string") {
       const prevValidator = this._validator;
       this._validator = (value: any) => {
         const valid = typeof value === "string" && value.length >= min;
-        return prevValidator ? prevValidator(value) && valid : valid;
+        return prevValidator ? mergeValidatorResult(prevValidator(value), valid) : valid;
       };
     } else if (this.type === "array") {
       const prevValidator = this._validator;
       this._validator = (value: any) => {
         const valid = Array.isArray(value) && value.length >= min;
-        return prevValidator ? prevValidator(value) && valid : valid;
+        return prevValidator ? mergeValidatorResult(prevValidator(value), valid) : valid;
       };
     } else {
       throw new Error(
@@ -173,19 +185,19 @@ export class FieldBuilder<TExternal = unknown, TInternal = TExternal> {
       const prevValidator = this._validator;
       this._validator = (value: any) => {
         const valid = typeof value === "number" && value <= max;
-        return prevValidator ? prevValidator(value) && valid : valid;
+        return prevValidator ? mergeValidatorResult(prevValidator(value), valid) : valid;
       };
     } else if (this.type === "string") {
       const prevValidator = this._validator;
       this._validator = (value: any) => {
         const valid = typeof value === "string" && value.length <= max;
-        return prevValidator ? prevValidator(value) && valid : valid;
+        return prevValidator ? mergeValidatorResult(prevValidator(value), valid) : valid;
       };
     } else if (this.type === "array") {
       const prevValidator = this._validator;
       this._validator = (value: any) => {
         const valid = Array.isArray(value) && value.length <= max;
-        return prevValidator ? prevValidator(value) && valid : valid;
+        return prevValidator ? mergeValidatorResult(prevValidator(value), valid) : valid;
       };
     } else {
       throw new Error(
@@ -202,7 +214,7 @@ export class FieldBuilder<TExternal = unknown, TInternal = TExternal> {
     const prevValidator = this._validator;
     this._validator = (value: any) => {
       const valid = typeof value === "string" && regex.test(value);
-      return prevValidator ? prevValidator(value) && valid : valid;
+      return prevValidator ? mergeValidatorResult(prevValidator(value), valid) : valid;
     };
     return this;
   }
