@@ -112,6 +112,7 @@ describe("validateName", () => {
     expect(validateName("José Ángel")).toBe(true);
     expect(validateName("O'Connor")).toBe(true);
     expect(validateName("Jean-Luc Picard")).toBe(true);
+    expect(validateName("J. R. R. Tolkien")).toBe(true);
   });
 
   it("rejects names with control chars, digits, or symbols", () => {
