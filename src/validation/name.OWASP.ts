@@ -18,7 +18,7 @@ export function validateName(value: unknown): boolean {
   }
 
   // Core pattern
-  const namePattern = /^[\p{L}\p{M}'\-\. ]+$/u;
+  const namePattern = /^[\p{L}\p{M}'\-. ]+$/u;
   if (!namePattern.test(trimmed)) return false;
 
   return true;

@@ -69,16 +69,16 @@
   "homepage": "https://github.com/Plasius-LTD/schema#readme",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^25.5.0",
-    "@typescript-eslint/eslint-plugin": "^8.58.0",
-    "@typescript-eslint/parser": "^8.58.0",
-    "@vitest/coverage-v8": "^4.1.2",
-    "eslint": "^10.1.0",
-    "globals": "^17.3.0",
-    "tsup": "^8.5.0",
-    "tsx": "^4.20.5",
-    "typescript": "^6.0.2",
-    "vitest": "^4.1.2"
+    "@types/node": "^25.6.0",
+    "@typescript-eslint/eslint-plugin": "^8.59.0",
+    "@typescript-eslint/parser": "^8.59.0",
+    "@vitest/coverage-v8": "^4.1.4",
+    "eslint": "^10.2.1",
+    "globals": "^17.5.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.4"
   },
   "publishConfig": {
     "access": "public"
