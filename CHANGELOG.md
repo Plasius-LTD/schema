@@ -13,7 +13,7 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - (placeholder)
 
 - **Changed**
-  - (placeholder)
+  - Updated the package template workflows to use centralized Plasius package CI, audit-fix, runner-selection, and npm publish automation.
 
 - **Fixed**
   - (placeholder)

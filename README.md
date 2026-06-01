@@ -28,6 +28,11 @@ uses `dist-cjs/*.js` with `type: module`, it must generate
 `dist-cjs/package.json` with `{ "type": "commonjs" }` and validate this in
 `pack:check` before publish.
 
+Template GitHub Actions should stay as small wrappers around the centralized
+package workflows and actions in `Plasius-LTD/plasius-ltd-site`. Keep local
+workflow files responsible for triggers, permissions, protected environments,
+and pinned central references rather than copying full build/publish scripts.
+
 ---
 
 ## Demo
