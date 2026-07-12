@@ -204,12 +204,12 @@ export function isIsoLanguageCode(value: unknown): value is IsoLanguageCode {
  * If you want hard membership, we can add a Set of all alpha-2 regions.
  */
 export function isRegionSubtag(value: string): boolean {
-  return /^[A-Z]{2}$/.test(value) || /^\d{3}$/.test(value);
+  return /^[A-Za-z]{2}$/.test(value) || /^\d{3}$/.test(value);
 }
 
 /** Script subtag per ISO 15924: one capital + three lowercase (e.g., Latn, Cyrl, Hans). */
 export function isScriptSubtag(value: string): boolean {
-  return /^[A-Z][a-z]{3}$/.test(value);
+  return /^[A-Za-z]{4}$/.test(value);
 }
 
 /** Variant subtag per BCP 47: 5–8 alnum, or 4 starting with a digit. */
@@ -249,12 +249,30 @@ export function validateLanguage(value: unknown): boolean {
   if (typeof value !== "string" || value.length === 0) return false;
 
   const parts = value.split("-");
+  if (parts.some(part => part.length === 0)) return false;
+  const lowerTag = value.toLowerCase();
+  if (GRANDFATHERED_TAGS.has(lowerTag)) return true;
+  if (parts[0]?.toLowerCase() === "x") {
+    return parts.length > 1 && parts.slice(1).every(isPrivateUseSubtag);
+  }
   let i = 0;
 
-  // 1) primary language (must be enum member; we use lowercase for comparison)
+  // Supported RFC 5646 §2.2.1 subset: registered ISO 639-1 primaries and
+  // three-letter primary shapes. Longer registered primaries require an IANA
+  // registry dependency and are deliberately not claimed by this validator.
   const lang = parts[i];
-  if (!lang || !isIsoLanguageCode(lang)) return false;
+  if (!lang || !/^[A-Za-z]{2,3}$/.test(lang)) return false;
+  if (lang.length === 2 && !isIsoLanguageCode(lang)) return false;
   i += 1;
+
+  // Up to three extlang subtags may follow a 2-3 letter primary.
+  if (lang.length <= 3) {
+    let extlangCount = 0;
+    while (i < parts.length && extlangCount < 3 && /^[A-Za-z]{3}$/.test(parts[i]!)) {
+      i += 1;
+      extlangCount += 1;
+    }
+  }
 
   // 2) optional script
   if (i < parts.length && isScriptSubtag(parts[i] as string)) {
@@ -268,13 +286,21 @@ export function validateLanguage(value: unknown): boolean {
   }
 
   // 4) zero or more variants
+  const variants = new Set<string>();
   while (i < parts.length && isVariantSubtag((parts[i] as string))) {
+    const variant = parts[i]!.toLowerCase();
+    if (variants.has(variant)) return false;
+    variants.add(variant);
     i += 1;
   }
 
   // 5) zero or more extensions
   //    extension = singleton ; 2–8 ; ( ; 2–8 )*
+  const extensionSingletons = new Set<string>();
   while (i < parts.length && isExtensionSingleton((parts[i] as string))) {
+    const singleton = parts[i]!.toLowerCase();
+    if (extensionSingletons.has(singleton)) return false;
+    extensionSingletons.add(singleton);
     i += 1;
     // must have at least one following subtag of length 2–8
     if (!(i < parts.length && isExtensionSubtag(parts[i]!))) return false;
@@ -295,3 +321,12 @@ export function validateLanguage(value: unknown): boolean {
   // no leftovers
   return i === parts.length;
 }
+
+/** RFC 5646 §2.1 grandfathered tags, matched case-insensitively. */
+const GRANDFATHERED_TAGS: ReadonlySet<string> = new Set([
+  "art-lojban", "cel-gaulish", "en-gb-oed", "i-ami", "i-bnn", "i-default",
+  "i-enochian", "i-hak", "i-klingon", "i-lux", "i-mingo", "i-navajo",
+  "i-pwn", "i-tao", "i-tay", "i-tsu", "no-bok", "no-nyn", "sgn-be-fr",
+  "sgn-be-nl", "sgn-ch-de", "zh-guoyu", "zh-hakka", "zh-min", "zh-min-nan",
+  "zh-xiang",
+]);

@@ -88,6 +88,21 @@ const UserFields = {
 ```
 
 Common methods (non‑exhaustive): `.required()`, `.optional()`, `.default(v|fn)`, `.description(text)`, and type‑specific helpers like `.email()`, `.uuid()`, `.min()`, `.max()`, `.enum([...])`.
+
+Validation standards notes:
+
+- `languageCode()` checks a documented RFC 5646/BCP 47 subset
+  case-insensitively, including grandfathered and private-use tags;
+  two-letter primaries are checked against the package's ISO 639-1 registry.
+  Registered 4-8 letter primaries remain outside this dependency-free subset.
+- `uuid()` accepts the RFC 9562 versions 1-8, Nil, and Max text forms. Legacy
+  RFC 4122-named module paths remain compatibility aliases.
+- `email()` is a pragmatic dot-domain mailbox subset, not a claim of complete
+  RFC 5322 grammar support.
+
+Runtime rollout inherits `governance.rfc-compliance-remediation.enabled`;
+disabled consumers may retain the prior validators only during a documented
+migration window.
 Defaults are applied during validation when inputs are missing/`undefined`.
 Fields are required by default; call `.optional()` (or provide `.default()`) to allow omission.
 Use `.internal()` or `.exposure("internal")` on fields that the server may validate/store but must not include in client-facing payloads.

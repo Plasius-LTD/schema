@@ -13,7 +13,12 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - (placeholder)
 
 - **Changed**
-  - (placeholder)
+  - Expanded the documented BCP 47 subset with case-insensitive subtags,
+    extlangs, private-use-only and grandfathered tags, and duplicate rejection.
+  - Updated UUID validation from obsolete RFC 4122 claims to RFC 9562 versions
+    1-8, Nil, and Max while retaining the compatibility filename.
+  - Documented email validation as a pragmatic product subset rather than full
+    RFC 5322 mailbox conformance.
 
 - **Fixed**
   - (placeholder)

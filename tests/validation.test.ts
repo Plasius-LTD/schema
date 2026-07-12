@@ -56,6 +56,9 @@ describe("validateUrl", () => {
 describe("validateUUID", () => {
   it("accepts valid UUIDs", () => {
     expect(validateUUID("123e4567-e89b-12d3-a456-426614174000")).toBe(true);
+    expect(validateUUID("018f6d44-3a6b-7c8d-8e9f-0123456789ab")).toBe(true);
+    expect(validateUUID("00000000-0000-0000-0000-000000000000")).toBe(true);
+    expect(validateUUID("ffffffff-ffff-ffff-ffff-ffffffffffff")).toBe(true);
   });
 
   it("rejects invalid UUIDs", () => {
@@ -189,11 +192,17 @@ describe("validateLanguage", () => {
     expect(validateLanguage("en")).toBe(true);
     expect(validateLanguage("sr-Cyrl-RS")).toBe(true);
     expect(validateLanguage("en-GB-u-ca-gregory")).toBe(true);
+    expect(validateLanguage("EN-latn-us")).toBe(true);
+    expect(validateLanguage("gsw-CH")).toBe(true);
+    expect(validateLanguage("i-klingon")).toBe(true);
+    expect(validateLanguage("x-private-use")).toBe(true);
   });
 
   it("rejects malformed or unknown language tags", () => {
     expect(validateLanguage("zz")).toBe(false); // unknown language
     expect(validateLanguage("en-GB-123456789")).toBe(false); // variant too long
+    expect(validateLanguage("sl-rozaj-rozaj")).toBe(false); // duplicate variant
+    expect(validateLanguage("en-u-ca-gregory-u-nu-latn")).toBe(false); // duplicate singleton
     expect(validateLanguage("")).toBe(false);
   });
 });
