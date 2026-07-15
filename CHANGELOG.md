@@ -10,7 +10,9 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 ## [Unreleased]
 
 - **Added**
-  - (placeholder)
+  - Added versioned player-system observed-event, normalized-batch, and curated
+    Event Log/Achievement schemas with strict safe-text validation and
+    privacy-safe `playerId` metadata.
 
 - **Changed**
   - (placeholder)
