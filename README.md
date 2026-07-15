@@ -30,6 +30,25 @@ uses `dist-cjs/*.js` with `type: module`, it must generate
 
 ---
 
+## Player-system event contracts
+
+The package exports versioned contracts for a blob-backed, privacy-safe player
+event pipeline:
+
+```ts
+import {
+  PlayerSystemCuratedSnapshotSchema,
+  PlayerSystemNormalizedEventBatchSchema,
+  PlayerSystemObservedEventBatchSchema,
+} from "@plasius/schema";
+```
+
+The contracts cover raw observed-event ingress, normalized batches with
+deterministic keys, and curated per-player Event Log/Achievement snapshots.
+Only the stable `playerId` is treated as a personal identifier. It is retained
+for storage partitioning and pseudonymized by `sanitizeForLog`; unknown fields
+and hidden server truth are excluded by schema serialization.
+
 ## Demo
 
 ```bash
