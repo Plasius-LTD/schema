@@ -40,7 +40,7 @@ jobs:
 
   publish:
     needs: prepare_release
-    runs-on: ${{ fromJSON(vars.CD_RUNNER_LABELS || '["self-hosted","Linux","X64"]') }}
+    runs-on: ubuntu-latest
     environment: production
     steps:
       - name: Checkout prepared release commit
@@ -78,6 +78,10 @@ jobs:
             echo "should_finalize_release=true"
             echo "skip_reason=${SKIP_REASON}"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Verify private artifact policy
+        if: steps.release.outputs.should_finalize_release == 'true'
+        run: npm run privacy:check
 
       - name: Skip when package version is already published
         if: steps.release.outputs.should_publish_npm != 'true'
