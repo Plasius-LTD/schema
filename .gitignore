@@ -6,3 +6,5 @@ coverage/
 **/certs/**/*-key.pem
 **/certs/**/*.key
 **/certs/**/*.p8
+
+/legal/CLA-REGISTRY.csv
