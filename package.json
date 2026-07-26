@@ -32,6 +32,7 @@
     "clean": "rimraf dist",
     "test:coverage": "vitest run --coverage",
     "pack:check": "node scripts/verify-public-package.cjs",
+    "privacy:check": "node scripts/verify-public-artifacts.cjs --package-dir .",
     "prepublishOnly": "npm run build && npm run pack:check"
   },
   "keywords": [
@@ -94,6 +95,7 @@
     }
   ],
   "overrides": {
+    "esbuild": "^0.28.1",
     "minimatch": "^10.2.1"
   },
   "engines": {
