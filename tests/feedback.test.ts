@@ -360,8 +360,30 @@ describe("transient narrative contracts", () => {
     expect(
       FeedbackRichTextAstSchema.validate(ast("\u1c89ynthetic")).valid,
     ).toBe(false);
+    expect(FeedbackRichTextAstSchema.validate(ast("\u1c89")).valid).toBe(
+      false,
+    );
     expect(
       FeedbackRichTextAstSchema.validate(ast("\ua7f1ynthetic")).valid,
+    ).toBe(false);
+    expect(FeedbackRichTextAstSchema.validate(ast("\ua7f1")).valid).toBe(
+      false,
+    );
+    for (const postProfileAssignment of [
+      0x10940,
+      0x11db0,
+      0x16ea0,
+      0x1e6c0,
+      0x323b0,
+    ]) {
+      expect(
+        FeedbackRichTextAstSchema.validate(
+          ast(`${String.fromCodePoint(postProfileAssignment)}ynthetic`),
+        ).valid,
+      ).toBe(false);
+    }
+    expect(
+      FeedbackRichTextAstSchema.validate(ast("Lone\ud800surrogate")).valid,
     ).toBe(false);
     expect(
       FeedbackRichTextAstSchema.validate(ast("Zero\u200bwidth")).valid,
@@ -391,6 +413,74 @@ describe("transient narrative contracts", () => {
         ],
       }).valid,
     ).toBe(false);
+  });
+
+  it("enforces Unicode profile assignment before host NFKC", () => {
+    const unsupportedText = "\u1c89ynthetic";
+    const originalNormalize = String.prototype.normalize;
+    let unsupportedTextReachedNormalization = false;
+
+    String.prototype.normalize = function (
+      form?: "NFC" | "NFD" | "NFKC" | "NFKD",
+    ): string {
+      if (String(this) === unsupportedText) {
+        unsupportedTextReachedNormalization = true;
+        throw new Error("Unsupported text reached host normalization.");
+      }
+      return originalNormalize.call(this, form);
+    };
+
+    try {
+      const result = FeedbackRichTextAstSchema.validate({
+        type: "doc",
+        schemaVersion: "1",
+        children: [
+          {
+            type: "paragraph",
+            depth: 0,
+            children: [{ type: "text", text: unsupportedText }],
+          },
+        ],
+      });
+      expect(result.valid).toBe(false);
+      expect(unsupportedTextReachedNormalization).toBe(false);
+    } finally {
+      String.prototype.normalize = originalNormalize;
+    }
+  });
+
+  it("rejects oversized text before profile normalization work", () => {
+    const oversizedText = "x".repeat(1_000_000);
+    const originalNormalize = String.prototype.normalize;
+    let oversizedTextReachedNormalization = false;
+
+    String.prototype.normalize = function (
+      form?: "NFC" | "NFD" | "NFKC" | "NFKD",
+    ): string {
+      if (String(this) === oversizedText) {
+        oversizedTextReachedNormalization = true;
+        throw new Error("Oversized text reached host normalization.");
+      }
+      return originalNormalize.call(this, form);
+    };
+
+    try {
+      const result = FeedbackRichTextAstSchema.validate({
+        type: "doc",
+        schemaVersion: "1",
+        children: [
+          {
+            type: "paragraph",
+            depth: 0,
+            children: [{ type: "text", text: oversizedText }],
+          },
+        ],
+      });
+      expect(result.valid).toBe(false);
+      expect(oversizedTextReachedNormalization).toBe(false);
+    } finally {
+      String.prototype.normalize = originalNormalize;
+    }
   });
 
   it("bounds formatting-node overhead independently of text length", () => {

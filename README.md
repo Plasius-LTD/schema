@@ -63,6 +63,18 @@ import {
 } from "@plasius/schema";
 ```
 
+Renderer and browser packages that need only the game-diagnostics vocabulary
+should import `@plasius/schema/feedback-diagnostics-vocabulary`. This
+lightweight entrypoint exports the canonical surface/provenance pairs, buckets,
+feature/counter/error allowlists, bounds, and discriminated type without
+loading the schema builder. Server validation and analysis tools should import
+`@plasius/schema/feedback-diagnostics`, which adds the canonical runtime schema.
+Both entrypoints derive from the same source definitions and preserve
+structural parity in ESM and CommonJS builds, so consumers cannot maintain a
+second diagnostics dialect. Use `validateFeedbackGameDiagnostics()` when a
+consumer needs a validation result whose `value` retains the correlated
+`FeedbackGameDiagnostics` TypeScript type.
+
 Free-form feedback exists only in `FeedbackRichTextAstSchema`, which is
 intended for a transient no-retention scanner. Its text nodes are marked
 high-PII, clear-on-storage, and omit-from-logs. The interoperable document is
@@ -71,13 +83,36 @@ rooted at
 only paragraph and bullet-list-item blocks with bounded indentation and text
 nodes with bold, italic, and underline marks. Narrative must already be NFKC
 normalised against the exported `unicode-15.1.0-nfkc-v1` profile before
-validation. Its 4,000-character ceiling counts Unicode code points and
+validation. Assignment is checked against the original code units before host
+NFKC is invoked. Its 4,000-character ceiling counts Unicode code points and
 inter-block newlines consistently with the private scanner, with a separate
 8,000 UTF-16-unit safety ceiling. HTML, Markdown links, protocol-relative
 links, and `http`, `https`, `ftp`, `mailto`, `javascript`, `data`, `blob`, and
-`file` schemes are rejected. Scanner implementations must reject code points
-unassigned by the pinned profile rather than accepting newer-runtime
-assignment or normalization canaries unchanged.
+`file` schemes are rejected.
+
+The complete Unicode 15.1 unassigned corpus is shipped independently of the
+host runtime:
+
+```ts
+import {
+  FEEDBACK_UNICODE_PROFILE_ENDPOINT_SHA256,
+  FEEDBACK_UNICODE_PROFILE_ID,
+  containsFeedbackUnicodeProfileUnsupportedText,
+  isFeedbackUnicodeProfileUnassigned,
+} from "@plasius/schema/feedback-unicode-profile";
+```
+
+`containsFeedbackUnicodeProfileUnsupportedText` rejects every code point
+unassigned in Unicode 15.1 and every lone UTF-16 surrogate. The code-point
+helper decodes canonical, delta ULEB128/base64url once and uses binary search
+over 707 half-open ranges. Non-JavaScript scanners can consume the same
+language-neutral corpus from
+`@plasius/schema/unicode/feedback-unicode-15.1.0-unassigned.json` and verify
+its published endpoint digest. The corpus is generated from the exact
+build-time dependency `@unicode/unicode-15.1.0@1.6.17`; run
+`npm run unicode:check` to prove the checked-in artifact is current. See
+[ADR-0007](./docs/adrs/adr-0007-pinned-unicode-feedback-profile.md) and
+[third-party notices](./THIRD_PARTY_NOTICES.md).
 
 Validated reusable fragments retain exact `type` and `version` metadata when
 embedded in parent contracts. This makes the output of the encrypted-envelope,

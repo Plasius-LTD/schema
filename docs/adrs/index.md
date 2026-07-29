@@ -6,3 +6,4 @@
 - [ADR-0004: Field Exposure Metadata and Public Serialization](./adr-0004-field-exposure-and-public-serialization.md)
 - [ADR-0005: Reusable Player-System Event Contracts](./adr-0005-player-system-event-contracts.md)
 - [ADR-0006: Privacy-Safe Feedback Contract Boundaries](./adr-0006-privacy-safe-feedback-contract-boundaries.md)
+- [ADR-0007: Pinned Unicode Feedback Profile](./adr-0007-pinned-unicode-feedback-profile.md)

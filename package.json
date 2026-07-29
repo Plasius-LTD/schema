@@ -8,7 +8,9 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "THIRD_PARTY_NOTICES.md",
+    "unicode"
   ],
   "exports": {
     ".": {
@@ -16,11 +18,27 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
+    "./feedback-diagnostics": {
+      "types": "./dist/feedback-diagnostics.d.ts",
+      "import": "./dist/feedback-diagnostics.js",
+      "require": "./dist/feedback-diagnostics.cjs"
+    },
+    "./feedback-diagnostics-vocabulary": {
+      "types": "./dist/feedback-diagnostics-vocabulary.d.ts",
+      "import": "./dist/feedback-diagnostics-vocabulary.js",
+      "require": "./dist/feedback-diagnostics-vocabulary.cjs"
+    },
+    "./feedback-unicode-profile": {
+      "types": "./dist/feedback-unicode-profile.d.ts",
+      "import": "./dist/feedback-unicode-profile.js",
+      "require": "./dist/feedback-unicode-profile.cjs"
+    },
+    "./unicode/feedback-unicode-15.1.0-unassigned.json": "./unicode/feedback-unicode-15.1.0-unassigned.json",
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "tsup",
-    "test": "vitest run",
+    "build": "npm run unicode:check && tsup",
+    "test": "npm run unicode:check && vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "audit:eslint": "eslint . --max-warnings=0",
@@ -33,6 +51,8 @@
     "test:coverage": "vitest run --coverage",
     "pack:check": "node scripts/verify-public-package.cjs",
     "privacy:check": "node scripts/verify-public-artifacts.cjs --package-dir .",
+    "unicode:check": "node scripts/generate-feedback-unicode-profile.cjs --check",
+    "unicode:generate": "node scripts/generate-feedback-unicode-profile.cjs",
     "prepublishOnly": "npm run build && npm run pack:check"
   },
   "keywords": [
@@ -73,6 +93,7 @@
     "@types/node": "^26.1.1",
     "@typescript-eslint/eslint-plugin": "^8.64.0",
     "@typescript-eslint/parser": "^8.64.0",
+    "@unicode/unicode-15.1.0": "1.6.17",
     "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^10.7.0",
     "globals": "^17.7.0",
