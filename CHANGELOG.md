@@ -10,17 +10,63 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 ## [Unreleased]
 
 - **Added**
-  - (placeholder)
+  - Added strict, versioned privacy-safe feedback contracts for transient
+    rich-text analysis, encrypted envelopes, capability-projected context,
+    drafts, bug/review packets, game diagnostics, scheduled reports,
+    checkpoints, reconstruction manifests, and public honesty snapshots.
+  - Added opt-in recursive `unknownFields: "reject"` validation while
+    preserving the historical stripping default for existing schemas.
+  - Added opt-in exact schema type/version enforcement for closed trust
+    boundaries while retaining compatible legacy behaviour by default.
+  - Added directly composable child-contract identities, v4-only workflow
+    identifiers, exact UTC report windows/rates, and closed renderer
+    diagnostic vocabularies.
+  - Added bounded draft/acceptance receipts and a closed structured-only
+    analysis result for HTTP response contracts.
+  - Added runtime-frozen feedback vocabularies, Unicode code-point narrative
+    limits, canonical cryptographic identifiers, exact cooldown projections,
+    and processor-bound replay manifests.
 
 - **Changed**
-  - (placeholder)
+  - Extended recursive strict unknown-field rejection to direct and array
+    references, treating unshaped references as exactly `type` plus `id`.
+  - Preserved omission of absent optional nested objects across storage,
+    read, and log preparation while retaining present optional encrypted and
+    hashed values during read preparation.
+  - Corrected the documented development runtime to Node.js 24, matching
+    `.nvmrc` and repository guidance.
+  - Refreshed compatible development tooling as part of the feedback Epic
+    dependency audit; TypeScript 7 remains a separate major migration.
 
 - **Fixed**
-  - (placeholder)
+  - Bounded every strict input before recursive cloning, including malformed
+    containers hidden under scalar fields, preventing validation stack
+    exhaustion.
+  - Bound context cooldowns and type-specific acceptance receipts to the exact
+    bug ladder and 30-day review period.
+  - Bound report advisory counts/recommendations to their triggers and public
+    trend direction to a thresholded preceding-window comparison.
+  - Runtime-froze the exported schema policy vocabularies.
 
 - **Security**
   - Added fail-closed source and npm-package admission for the administrative contributor registry and pinned the CI/CD runtime to Node.js 24.18.0 LTS.
-  - (placeholder)
+  - Feedback storage schemas structurally reject narrative, identities,
+    pseudonyms, client/network metadata, pixels, arbitrary classifier output,
+    and unknown fields without reflecting attacker-controlled keys or values.
+  - Public honesty snapshots now omit all sub-threshold counts and require 13
+    canonical suppressed/published weekly slots; diagnostics reject arbitrary
+    safe-looking IDs and cross-surface attachment.
+  - Surface entries now bind IDs to canonical visibility and diagnostics
+    metadata; envelope encodings and formatting-node overhead are bounded
+    before private scanning.
+  - Pinned the transient narrative boundary to the Unicode 15.1 normalization
+    profile with a cross-runtime compatibility canary, and rejected `data`,
+    `blob`, `file`, and protocol-relative URL syntax alongside the existing
+    closed link schemes.
+  - Array-enum validation errors no longer echo rejected input values.
+  - Nested PII audit paths now expose transient text annotations for review.
+  - Pinned the transitive `esbuild` toolchain to a non-vulnerable compatible
+    release; the complete dependency audit now reports zero vulnerabilities.
 
 ## [1.3.0] - 2026-07-15
 

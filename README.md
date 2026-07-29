@@ -49,6 +49,91 @@ Only the stable `playerId` is treated as a personal identifier. It is retained
 for storage partitioning and pseudonymized by `sanitizeForLog`; unknown fields
 and hidden server truth are excluded by schema serialization.
 
+## Privacy-safe feedback contracts
+
+The package exports closed, versioned contracts for feedback intake and
+reporting:
+
+```ts
+import {
+  FeedbackBugPacketSchema,
+  FeedbackPublicSummarySchema,
+  FeedbackRichTextAstSchema,
+  FeedbackReviewPacketSchema,
+} from "@plasius/schema";
+```
+
+Free-form feedback exists only in `FeedbackRichTextAstSchema`, which is
+intended for a transient no-retention scanner. Its text nodes are marked
+high-PII, clear-on-storage, and omit-from-logs. The interoperable document is
+rooted at
+`{ type: "doc", version: "1.0.0", schemaVersion: "1", children }`; it permits
+only paragraph and bullet-list-item blocks with bounded indentation and text
+nodes with bold, italic, and underline marks. Narrative must already be NFKC
+normalised against the exported `unicode-15.1.0-nfkc-v1` profile before
+validation. Its 4,000-character ceiling counts Unicode code points and
+inter-block newlines consistently with the private scanner, with a separate
+8,000 UTF-16-unit safety ceiling. HTML, Markdown links, protocol-relative
+links, and `http`, `https`, `ftp`, `mailto`, `javascript`, `data`, `blob`, and
+`file` schemes are rejected. Scanner implementations must reject code points
+unassigned by the pinned profile rather than accepting newer-runtime
+assignment or normalization canaries unchanged.
+
+Validated reusable fragments retain exact `type` and `version` metadata when
+embedded in parent contracts. This makes the output of the encrypted-envelope,
+derived-analysis, and game-diagnostics schemas directly composable into their
+request or packet schemas without a metadata-stripping step.
+
+Accepted packet, diagnostics, report, checkpoint, and public-summary schemas
+cannot express narrative, reporter identity or pseudonyms, network/client
+metadata, arbitrary URLs, pixels, quotes, summaries, embeddings, content
+hashes, or model traces. Game surfaces, provenance contracts, features,
+counters, and error codes are closed enums rather than attacker-controlled
+safe-looking strings. The public summary omits counts, averages, and trends
+entirely when the ten-review privacy threshold is not met and always carries
+13 canonical UTC week slots, using suppressed gaps where a week is below the
+same threshold. A trend is emitted only with a preceding 90-day comparison
+that independently meets the ten-review threshold; the schema derives its
+delta and enforces `up`/`down` only at a change of at least 0.1 stars.
+
+Hourly reports bind targets to the closed surface registry and include
+renderer/backend/viewport/frame-rate/frame-time plus closed diagnostic
+feature/counter/error distributions. Release IDs and build IDs are
+server-registry values: intake clients never submit them, and consumers must
+resolve them from trusted deployment metadata before packet construction.
+Advisory trigger counts and ordered recommendation IDs are derived exactly
+from the report distributions and processor lag rather than accepted as
+free-standing claims. Feedback context caps remaining bug cooldown at 24
+hours and review suppression at 30 days; acceptance receipts distinguish bugs
+from reviews and accept only the five-step bug ladder or exact 30-day review
+period.
+
+All feedback contracts opt in to recursive unknown-field rejection, including
+direct references and arrays of references. Unshaped references admit only
+`type` and `id`; shaped references admit only those keys plus their declared
+fields. Closed feedback vocabularies and definition objects are runtime frozen
+before schemas capture them. Before recursive cloning, strict validation also
+performs an iterative whole-value node/depth budget so malformed containers
+hidden under scalar fields cannot exhaust the call stack. The
+general schema default remains backwards-compatible stripping:
+
+```ts
+const ClosedPacket = createSchema(fields, "closed-packet", {
+  version: "1.0.0",
+  piiEnforcement: "strict",
+  unknownFields: "reject",
+  identity: "exact",
+});
+```
+
+Unknown-field errors name only the schema-owned container and never echo an
+untrusted key or value. Exact identity rejects a mismatched contract type or
+version. The schemas constrain data shape; consumers must still
+perform the documented private PII scan, discard narrative immediately, and
+validate again before every storage write. See the
+[feedback contract design](./docs/design/feedback-contracts.md) and
+[ADR-0006](./docs/adrs/adr-0006-privacy-safe-feedback-contract-boundaries.md).
+
 ## Demo
 
 ```bash
@@ -62,7 +147,7 @@ See `demo/README.md` for the local sanity-check scaffold.
 
 ## Node.js Version
 
-This project uses Node.js **22** by default. The version is pinned in the [`.nvmrc`](./.nvmrc) file.
+This project uses Node.js **24** by default. The version is pinned in the [`.nvmrc`](./.nvmrc) file.
 
 If you use [nvm](https://github.com/nvm-sh/nvm), simply run:
 

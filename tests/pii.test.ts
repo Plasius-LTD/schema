@@ -273,6 +273,121 @@ describe("PII read/write symmetry for hashed fields", () => {
     expect(scrubbed).toEqual({});
   });
 
+  it("round-trips present optional encrypted and hashed PII at every nesting level", () => {
+    const optionalEncrypted = () =>
+      field
+        .string()
+        .PID({
+          classification: "high",
+          action: "encrypt",
+          logHandling: "omit",
+          purpose: "synthetic optional round-trip",
+        })
+        .optional();
+    const optionalHashed = () =>
+      field
+        .string()
+        .PID({
+          classification: "low",
+          action: "hash",
+          logHandling: "pseudonym",
+          purpose: "synthetic optional round-trip",
+        })
+        .optional();
+    const OptionalRoundTrip = createSchema(
+      {
+        rootSecret: optionalEncrypted(),
+        rootToken: optionalHashed(),
+        nested: field.object({
+          secret: optionalEncrypted(),
+          token: optionalHashed(),
+        }),
+        items: field.array(
+          field.object({
+            secret: optionalEncrypted(),
+            token: optionalHashed(),
+          })
+        ),
+      },
+      "OptionalRoundTrip",
+      { version: "1.0.0", piiEnforcement: "strict" }
+    );
+
+    const stored = OptionalRoundTrip.prepareForStorage(
+      {
+        rootSecret: "root-secret",
+        rootToken: "root-token",
+        nested: { secret: "nested-secret", token: "nested-token" },
+        items: [
+          { secret: "array-secret", token: "array-token" },
+          {},
+        ],
+      },
+      (value) => `enc(${value})`,
+      (value) => `hash(${value})`
+    );
+    expect(stored).toEqual({
+      rootSecretEncrypted: "enc(root-secret)",
+      rootTokenHash: "hash(root-token)",
+      nested: {
+        secretEncrypted: "enc(nested-secret)",
+        tokenHash: "hash(nested-token)",
+      },
+      items: [
+        {
+          secretEncrypted: "enc(array-secret)",
+          tokenHash: "hash(array-token)",
+        },
+        {},
+      ],
+    });
+
+    expect(
+      OptionalRoundTrip.prepareForRead(stored, (value) => `dec(${value})`)
+    ).toEqual({
+      rootSecret: "dec(enc(root-secret))",
+      rootToken: "hash(root-token)",
+      nested: {
+        secret: "dec(enc(nested-secret))",
+        token: "hash(nested-token)",
+      },
+      items: [
+        {
+          secret: "dec(enc(array-secret))",
+          token: "hash(array-token)",
+        },
+        {},
+      ],
+    });
+  });
+
+  it("preserves absence of optional nested objects across PII helpers", () => {
+    const OptionalNested = createSchema(
+      {
+        analysis: field
+          .object({
+            category: field.string(),
+          })
+          .optional(),
+      },
+      "OptionalNested",
+      { version: "1.0.0", piiEnforcement: "strict" }
+    );
+
+    const stored = OptionalNested.prepareForStorage(
+      {},
+      (value) => String(value),
+      (value) => String(value)
+    );
+    expect(stored).toEqual({});
+    const read = OptionalNested.prepareForRead(stored, (value) => value);
+    expect(read).toEqual({});
+    expect(Object.prototype.hasOwnProperty.call(read, "analysis")).toBe(false);
+    expect(
+      OptionalNested.sanitizeForLog(stored, (value) => String(value))
+    ).toEqual({});
+  });
+
   it("keeps type/id when sanitizing refs without nested shape", () => {
     const RefSchema = createSchema(
       { owner: field.ref("user") },

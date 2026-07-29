@@ -7,6 +7,8 @@ import {
   PIIEnforcement,
   SchemaUpgradeResult,
   SchemaUpgradeSpec,
+  SCHEMA_IDENTITY_POLICIES,
+  SCHEMA_UNKNOWN_FIELDS_POLICIES,
   SerializeOptions,
 } from "./types.js";
 import type {
@@ -228,9 +230,7 @@ function validateEnum(
   if (Array.isArray(value)) {
     const invalid = value.filter((v) => !values.includes(v));
     if (invalid.length > 0) {
-      return `Field ${parentKey} contains invalid enum values: ${invalid.join(
-        ", "
-      )}`;
+      return `Field ${parentKey} must contain only: ${values.join(", ")}`;
     }
   } else {
     if (!values.includes(value)) {
@@ -288,6 +288,166 @@ function getValidator(def: any): ((v: any) => FieldValidatorResult) | undefined 
 
 function getShape(def: any): Record<string, any> | undefined {
   return def?._shape ?? def?.shape ?? undefined;
+}
+
+const MAX_STRICT_VALIDATION_NODES = 10_000;
+const MAX_STRICT_VALIDATION_DEPTH = 256;
+const MAX_STRICT_VALIDATION_OBJECTS = MAX_STRICT_VALIDATION_NODES;
+
+function strictInputIsWithinComplexityLimit(input: unknown): boolean {
+  const pending: Array<{ value: unknown; depth: number }> = [
+    { value: input, depth: 0 },
+  ];
+  const seen = new WeakSet<object>();
+  let visitedNodes = 0;
+
+  try {
+    while (pending.length > 0) {
+      const current = pending.pop();
+      if (!current) {
+        continue;
+      }
+      visitedNodes += 1;
+      if (
+        visitedNodes > MAX_STRICT_VALIDATION_NODES ||
+        current.depth > MAX_STRICT_VALIDATION_DEPTH
+      ) {
+        return false;
+      }
+      if (
+        typeof current.value !== "object" ||
+        current.value === null
+      ) {
+        continue;
+      }
+      if (seen.has(current.value)) {
+        return false;
+      }
+      seen.add(current.value);
+
+      const keys = Object.keys(current.value);
+      if (
+        visitedNodes + pending.length + keys.length >
+        MAX_STRICT_VALIDATION_NODES
+      ) {
+        return false;
+      }
+      const record = current.value as Record<string, unknown>;
+      for (const key of keys) {
+        pending.push({
+          value: record[key],
+          depth: current.depth + 1,
+        });
+      }
+    }
+  } catch {
+    return false;
+  }
+
+  return true;
+}
+
+interface UnknownFieldScanState {
+  remainingObjects: number;
+  limitExceeded: boolean;
+}
+
+function strictReferenceShape(def: any): Record<string, any> {
+  return {
+    type: { type: "string" },
+    id: { type: "string" },
+    ...(getShape(def) ?? {}),
+  };
+}
+
+function unknownFieldLocations(
+  value: unknown,
+  shape: Record<string, any>,
+  location = "root",
+  state: UnknownFieldScanState = {
+    remainingObjects: MAX_STRICT_VALIDATION_OBJECTS,
+    limitExceeded: false,
+  },
+): string[] {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return [];
+  }
+  if (state.remainingObjects <= 0) {
+    state.limitExceeded = true;
+    return [];
+  }
+  state.remainingObjects -= 1;
+
+  const record = value as Record<string, unknown>;
+  const knownKeys = new Set(Object.keys(shape));
+  const locations = new Set<string>();
+
+  if (Object.keys(record).some((key) => !knownKeys.has(key))) {
+    locations.add(location);
+  }
+
+  for (const [key, def] of Object.entries(shape)) {
+    const child = record[key];
+    if (child === undefined || child === null) {
+      continue;
+    }
+
+    const childLocation = location === "root" ? key : `${location}.${key}`;
+    const childShape = getShape(def);
+    if ((def as any)?.type === "object" && childShape) {
+      for (const nestedLocation of unknownFieldLocations(
+        child,
+        childShape,
+        childLocation,
+        state,
+      )) {
+        locations.add(nestedLocation);
+      }
+      continue;
+    }
+
+    const itemType = (def as any)?.itemType;
+    if (
+      (def as any)?.type === "array" &&
+      (itemType?.type === "object" || itemType?.type === "ref") &&
+      Array.isArray(child)
+    ) {
+      const itemShape =
+        itemType.type === "ref"
+          ? strictReferenceShape(itemType)
+          : getShape(itemType);
+      if (!itemShape) {
+        continue;
+      }
+      for (const [index, item] of child.entries()) {
+        if (state.limitExceeded) {
+          break;
+        }
+        for (const nestedLocation of unknownFieldLocations(
+          item,
+          itemShape,
+          `${childLocation}[${index}]`,
+          state,
+        )) {
+          locations.add(nestedLocation);
+        }
+      }
+      continue;
+    }
+
+    if ((def as any)?.type === "ref") {
+      for (const nestedLocation of unknownFieldLocations(
+        child,
+        strictReferenceShape(def),
+        childLocation,
+        state,
+      )) {
+        locations.add(nestedLocation);
+      }
+    }
+  }
+
+  return [...locations];
 }
 
 function normalizeValidationIssue(
@@ -977,6 +1137,8 @@ export function createSchema<S extends SchemaShape>(
     table: "",
     schemaValidator: () => true,
     piiEnforcement: "none",
+    unknownFields: SCHEMA_UNKNOWN_FIELDS_POLICIES[0],
+    identity: SCHEMA_IDENTITY_POLICIES[0],
     schemaUpgrade: undefined,
   }
 ): Schema<S> {
@@ -1012,6 +1174,57 @@ export function createSchema<S extends SchemaShape>(
       if (typeof input !== "object" || input === null) {
         return { valid: false, errors: ["Input must be an object"] } as any;
       }
+      if (options.unknownFields === "reject") {
+        if (!strictInputIsWithinComplexityLimit(input)) {
+          return {
+            valid: false,
+            errors: ["Strict validation complexity limit exceeded."],
+            issues: [
+              {
+                path: "root",
+                code: "validation_complexity_limit",
+                message: "Strict validation complexity limit exceeded.",
+              },
+            ],
+          } as any;
+        }
+        const scanState: UnknownFieldScanState = {
+          remainingObjects: MAX_STRICT_VALIDATION_OBJECTS,
+          limitExceeded: false,
+        };
+        const locations = unknownFieldLocations(
+          input,
+          schema._shape,
+          "root",
+          scanState,
+        );
+        if (scanState.limitExceeded) {
+          return {
+            valid: false,
+            errors: ["Strict validation complexity limit exceeded."],
+            issues: [
+              {
+                path: "root",
+                code: "validation_complexity_limit",
+                message: "Strict validation complexity limit exceeded.",
+              },
+            ],
+          } as any;
+        }
+        if (locations.length > 0) {
+          return {
+            valid: false,
+            errors: locations.map(
+              (location) => `Unknown fields are not allowed at ${location}.`,
+            ),
+            issues: locations.map((location) => ({
+              path: location,
+              code: "unknown_fields",
+              message: `Unknown fields are not allowed at ${location}.`,
+            })),
+          } as any;
+        }
+      }
       // Work on a non-mutating copy that includes system defaults for first-time objects
       const working: Record<string, any> =
         typeof input === "object" && input !== null
@@ -1044,6 +1257,23 @@ export function createSchema<S extends SchemaShape>(
         // Ensure system defaults remain correct after user migration
         working.type = entityType;
         working.version = toVersion;
+      }
+
+      if (
+        options.identity === "exact" &&
+        (working.type !== entityType || working.version !== version)
+      ) {
+        return {
+          valid: false,
+          errors: ["Schema type or version does not match the contract."],
+          issues: [
+            {
+              path: "root",
+              code: "schema_identity_mismatch",
+              message: "Schema type or version does not match the contract.",
+            },
+          ],
+        } as any;
       }
 
       for (const key in schema._shape) {
