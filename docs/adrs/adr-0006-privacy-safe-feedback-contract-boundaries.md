@@ -37,8 +37,9 @@ boundaries:
    narrative envelope. Narrative text is marked high-PII, clear-on-storage,
    omit-from-logs, and is limited to 4,000 Unicode code points including block
    separators, with an 8,000 UTF-16-unit safety bound. The v1 boundary pins
-   `unicode-15.1.0-nfkc-v1`, rejects its post-profile U+A7F1 normalization
-   canary, and closes protocol-relative plus executable/local URL schemes.
+   `unicode-15.1.0-nfkc-v1`, rejects the complete Unicode 15.1 unassigned
+   corpus and lone surrogates before host NFKC, and closes protocol-relative
+   plus executable/local URL schemes.
    Encrypted key material, IVs, ciphertext, and one-use receipt IDs are also
    clear-on-storage and omit-from-logs.
 2. Scanner receipts contain closed classifications plus an opaque one-use
@@ -47,6 +48,15 @@ boundaries:
 3. Drafts, accepted packets, game diagnostics, materialized reports,
    checkpoints, reconstruction manifests, and public summaries contain only
    closed structured fields.
+
+Renderer/browser consumers use the focused
+`@plasius/schema/feedback-diagnostics-vocabulary` entrypoint for the canonical
+surface/provenance pairs, bounds, bucket/code vocabularies, and discriminated
+type without loading the schema builder. Server validators use
+`@plasius/schema/feedback-diagnostics`, which adds the canonical runtime schema.
+Both are sourced from one contract rather than allowing a second package-local
+diagnostics dialect. A domain-specific typed validation wrapper preserves the
+surface/provenance discriminant after generic schema validation.
 
 Packet UUIDs are workflow identifiers, not reporter identifiers. Server-owned
 packet/report UUIDs use random UUIDv4 validation. Client-provided draft and
@@ -114,12 +124,13 @@ private, no-retention privacy scanner before accepting derived analysis.
   complexity budget.
 - Optional encrypted and hashed PII fields preserve their transformed storage
   keys during read preparation while genuinely absent optionals remain absent.
-- The private scanner must reject code points unassigned by Unicode 15.1,
-  including the U+1C89 assignment and U+A7F1 normalization canaries, and
-  mirror the complete closed URL-syntax pattern before transient analysis is
-  enabled.
+- The browser and private scanner must match the complete, digest-bound
+  Unicode 15.1 unassigned corpus and mirror the closed URL-syntax pattern
+  before transient analysis is enabled. Host-runtime Unicode categories are
+  not an acceptable substitute.
 
 ## Related decisions
 
 - [ADR-0004: Field Exposure Metadata and Public Serialization](./adr-0004-field-exposure-and-public-serialization.md)
+- [ADR-0007: Pinned Unicode Feedback Profile](./adr-0007-pinned-unicode-feedback-profile.md)
 - [Feedback contract design](../design/feedback-contracts.md)

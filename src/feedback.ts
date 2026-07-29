@@ -1,15 +1,63 @@
 import { field } from "./field.js";
+import { FEEDBACK_CONTRACT_VERSION } from "./feedback-contract-version.js";
+import {
+  FEEDBACK_BACKEND_BUCKETS,
+  FEEDBACK_FRAME_RATE_BUCKETS,
+  FEEDBACK_FRAME_TIME_BUCKETS,
+  FEEDBACK_GAME_COUNTER_CODES,
+  FEEDBACK_GAME_COUNTER_MAX_COUNT,
+  FEEDBACK_GAME_COUNTER_MAX_ITEMS,
+  FEEDBACK_GAME_ERROR_CODES,
+  FEEDBACK_GAME_FEATURE_IDS,
+  FEEDBACK_GAME_PROVENANCE_CONTRACT_IDS,
+  FEEDBACK_GAME_PROVENANCE_CONTRACTS,
+  FEEDBACK_GAME_SURFACE_IDS,
+  FEEDBACK_RENDERER_BUCKETS,
+  FEEDBACK_VIEWPORT_BUCKETS,
+  FeedbackGameDiagnosticsSchema,
+  feedbackGameDiagnosticsShape as gameDiagnosticsShape,
+  isFeedbackGameDiagnosticsConsistent as isGameDiagnosticsConsistent,
+  validateFeedbackGameDiagnostics,
+} from "./feedback-diagnostics.contract.js";
+import type {
+  FeedbackGameDiagnostics,
+  FeedbackGameDiagnosticsValidationResult,
+} from "./feedback-diagnostics.contract.js";
+import {
+  FEEDBACK_UNICODE_PROFILE_ID,
+  containsFeedbackUnicodeProfileUnsupportedText,
+} from "./feedback-unicode-profile.js";
 import { createSchema } from "./schema.js";
-/** Version shared by the first privacy-safe feedback contracts. */
-export const FEEDBACK_CONTRACT_VERSION = "1.0.0";
+
+export { FEEDBACK_CONTRACT_VERSION };
+export {
+  FEEDBACK_BACKEND_BUCKETS,
+  FEEDBACK_FRAME_RATE_BUCKETS,
+  FEEDBACK_FRAME_TIME_BUCKETS,
+  FEEDBACK_GAME_COUNTER_CODES,
+  FEEDBACK_GAME_COUNTER_MAX_COUNT,
+  FEEDBACK_GAME_COUNTER_MAX_ITEMS,
+  FEEDBACK_GAME_ERROR_CODES,
+  FEEDBACK_GAME_FEATURE_IDS,
+  FEEDBACK_GAME_PROVENANCE_CONTRACT_IDS,
+  FEEDBACK_GAME_PROVENANCE_CONTRACTS,
+  FEEDBACK_GAME_SURFACE_IDS,
+  FEEDBACK_RENDERER_BUCKETS,
+  FEEDBACK_VIEWPORT_BUCKETS,
+  FeedbackGameDiagnosticsSchema,
+  validateFeedbackGameDiagnostics,
+};
+export type {
+  FeedbackGameDiagnostics,
+  FeedbackGameDiagnosticsValidationResult,
+};
 
 /**
- * Oldest Unicode normalization data shared by every v1 narrative processor.
- * Runtimes with newer Unicode data must retain the explicit compatibility
- * canaries enforced below until every scanner has moved to the same profile.
+ * Canonical Unicode normalization data shared by every v1 narrative
+ * processor.
  */
 export const FEEDBACK_UNICODE_NORMALIZATION_PROFILE =
-  "unicode-15.1.0-nfkc-v1";
+  FEEDBACK_UNICODE_PROFILE_ID;
 
 /** Exact progressive bug cooldown ladder, in seconds. */
 export const FEEDBACK_BUG_COOLDOWN_SECONDS = Object.freeze([
@@ -99,21 +147,6 @@ export const FEEDBACK_THEME_IDS = [
   "account-access",
   "overall-experience",
   "other",
-] as const;
-
-/** Coarse renderer buckets permitted in privacy-safe game diagnostics. */
-export const FEEDBACK_RENDERER_BUCKETS = [
-  "webgl2",
-  "webgpu",
-  "canvas2d",
-  "unknown",
-] as const;
-
-/** Coarse execution-backend buckets permitted in game diagnostics. */
-export const FEEDBACK_BACKEND_BUCKETS = [
-  "browser",
-  "worker",
-  "unknown",
 ] as const;
 
 /** Closed site-section identifiers; arbitrary routes and URLs are forbidden. */
@@ -222,59 +255,6 @@ export const FEEDBACK_SURFACE_DEFINITIONS = [
   },
 ] as const;
 
-/** Renderer surfaces approved to carry diagnostics in the first contract. */
-export const FEEDBACK_GAME_SURFACE_IDS = [
-  "site.generator",
-  "site.gpu-demo",
-] as const;
-
-/** Exact renderer-owned provenance contracts for approved game surfaces. */
-export const FEEDBACK_GAME_PROVENANCE_CONTRACTS = [
-  {
-    surfaceId: "site.generator",
-    contractId: "generator.renderer-diagnostics.v1",
-  },
-  {
-    surfaceId: "site.gpu-demo",
-    contractId: "gpu-demo.renderer-diagnostics.v1",
-  },
-] as const;
-
-/** Closed provenance identifiers accepted from the browser. */
-export const FEEDBACK_GAME_PROVENANCE_CONTRACT_IDS = [
-  "generator.renderer-diagnostics.v1",
-  "gpu-demo.renderer-diagnostics.v1",
-] as const;
-
-/** Closed renderer feature identifiers accepted from the browser. */
-export const FEEDBACK_GAME_FEATURE_IDS = [
-  "renderer.initialisation",
-  "renderer.frame-loop",
-  "renderer.asset-loading",
-  "renderer.input",
-  "renderer.scene-generation",
-  "renderer.post-processing",
-] as const;
-
-/** Closed renderer counter identifiers accepted from the browser. */
-export const FEEDBACK_GAME_COUNTER_CODES = [
-  "frame-drop",
-  "device-loss",
-  "asset-load-failure",
-  "shader-failure",
-  "fallback-activation",
-] as const;
-
-/** Closed renderer error identifiers accepted from the browser. */
-export const FEEDBACK_GAME_ERROR_CODES = [
-  "renderer.initialisation-failed",
-  "renderer.device-lost",
-  "renderer.asset-load-failed",
-  "renderer.frame-budget-exceeded",
-  "renderer.shader-failed",
-  "renderer.unknown",
-] as const;
-
 /** Closed reasons for falling back to explicit structured-only submission. */
 export const FEEDBACK_STRUCTURED_ONLY_REASON_CODES = [
   "analysis-unavailable",
@@ -295,35 +275,6 @@ export const FEEDBACK_ANALYSIS_MODEL_VERSIONS = [
   "feedback-en-rules-v1",
 ] as const;
 
-/** Coarse viewport buckets; exact dimensions are deliberately excluded. */
-export const FEEDBACK_VIEWPORT_BUCKETS = [
-  "small-portrait",
-  "small-landscape",
-  "medium-portrait",
-  "medium-landscape",
-  "large-portrait",
-  "large-landscape",
-  "unknown",
-] as const;
-
-/** Coarse frame-rate buckets permitted in game diagnostics. */
-export const FEEDBACK_FRAME_RATE_BUCKETS = [
-  "under-15",
-  "15-29",
-  "30-59",
-  "60-plus",
-  "unknown",
-] as const;
-
-/** Coarse frame-time buckets permitted in game diagnostics. */
-export const FEEDBACK_FRAME_TIME_BUCKETS = [
-  "under-17ms",
-  "17-33ms",
-  "34-66ms",
-  "over-66ms",
-  "unknown",
-] as const;
-
 for (const vocabulary of [
   FEEDBACK_BUG_COOLDOWN_SECONDS,
   FEEDBACK_ISSUE_TYPES,
@@ -333,22 +284,11 @@ for (const vocabulary of [
   FEEDBACK_SENTIMENT_BUCKETS,
   FEEDBACK_INTENT_IDS,
   FEEDBACK_THEME_IDS,
-  FEEDBACK_RENDERER_BUCKETS,
-  FEEDBACK_BACKEND_BUCKETS,
   FEEDBACK_SURFACE_IDS,
   FEEDBACK_SURFACE_DEFINITIONS,
-  FEEDBACK_GAME_SURFACE_IDS,
-  FEEDBACK_GAME_PROVENANCE_CONTRACTS,
-  FEEDBACK_GAME_PROVENANCE_CONTRACT_IDS,
-  FEEDBACK_GAME_FEATURE_IDS,
-  FEEDBACK_GAME_COUNTER_CODES,
-  FEEDBACK_GAME_ERROR_CODES,
   FEEDBACK_STRUCTURED_ONLY_REASON_CODES,
   FEEDBACK_PRIVACY_POLICY_VERSIONS,
   FEEDBACK_ANALYSIS_MODEL_VERSIONS,
-  FEEDBACK_VIEWPORT_BUCKETS,
-  FEEDBACK_FRAME_RATE_BUCKETS,
-  FEEDBACK_FRAME_TIME_BUCKETS,
 ]) {
   Object.freeze(vocabulary);
 }
@@ -356,7 +296,6 @@ for (const entry of [
   ...FEEDBACK_SEVERITY_LEVELS,
   ...FEEDBACK_SATISFACTION_LEVELS,
   ...FEEDBACK_SURFACE_DEFINITIONS,
-  ...FEEDBACK_GAME_PROVENANCE_CONTRACTS,
 ]) {
   Object.freeze(entry);
 }
@@ -466,23 +405,6 @@ export interface FeedbackAnalysisReceipt
   analyzedAt: string;
 }
 
-/** Coarse, consented game facts that cannot express captured pixels. */
-export interface FeedbackGameDiagnostics {
-  type: "feedback-game-diagnostics";
-  version: typeof FEEDBACK_CONTRACT_VERSION;
-  surfaceId: string;
-  consentConfirmed: true;
-  provenanceContractId: string;
-  renderer: (typeof FEEDBACK_RENDERER_BUCKETS)[number];
-  backend: (typeof FEEDBACK_BACKEND_BUCKETS)[number];
-  viewportBucket: (typeof FEEDBACK_VIEWPORT_BUCKETS)[number];
-  frameRateBucket: (typeof FEEDBACK_FRAME_RATE_BUCKETS)[number];
-  frameTimeBucket: (typeof FEEDBACK_FRAME_TIME_BUCKETS)[number];
-  featureIds: readonly string[];
-  counters: readonly { code: string; count: number }[];
-  errorCodes: readonly string[];
-}
-
 /** Identifier-free immutable bug packet. */
 export interface FeedbackBugPacket {
   type: "feedback-bug-packet";
@@ -567,16 +489,6 @@ const OPAQUE_UUID_V4_PATTERN =
 const DISALLOWED_NARRATIVE_SYNTAX_PATTERN =
   /<|>|(?:https?|ftp|mailto|javascript|data|blob|file):|\/\/|www\.|\]\s*\(/i;
 const DISALLOWED_UNICODE_FORMAT_PATTERN = /\p{Cf}/u;
-/**
- * Assignment and compatibility canaries added after the pinned Unicode 15.1
- * scanner data. U+1C89 is newly assigned with unchanged normalization in
- * Unicode 16; U+A7F1 normalizes to "S" in Unicode 17. Both are unassigned in
- * Unicode 15.1.
- */
-const POST_PROFILE_COMPATIBILITY_CODE_POINTS = Object.freeze([
-  0x1c89,
-  0xa7f1,
-] as const);
 const MAX_NARRATIVE_CHARACTERS = 4_000;
 const MAX_NARRATIVE_UTF16_CODE_UNITS = 8_000;
 const MAX_COUNT = 1_000_000_000;
@@ -733,6 +645,9 @@ const narrativeTextField = () =>
     .validator(
       (value) =>
         typeof value === "string" &&
+        value.length >= 1 &&
+        value.length <= MAX_NARRATIVE_UTF16_CODE_UNITS &&
+        !containsFeedbackUnicodeProfileUnsupportedText(value) &&
         value.normalize("NFKC") === value &&
         [...value].length <= MAX_NARRATIVE_CHARACTERS &&
         !DISALLOWED_NARRATIVE_SYNTAX_PATTERN.test(value) &&
@@ -741,10 +656,7 @@ const narrativeTextField = () =>
           const codePoint = character.codePointAt(0);
           return (
             codePoint !== undefined &&
-            (codePoint < 32 ||
-              codePoint === 127 ||
-              (POST_PROFILE_COMPATIBILITY_CODE_POINTS as readonly number[])
-                .includes(codePoint))
+            (codePoint < 32 || codePoint === 127)
           );
         }),
     )
@@ -897,59 +809,6 @@ const isAnalysisProjectionConsistent = (
     status === "analyzed" &&
     value.sentiment !== undefined &&
     value.confidence !== undefined
-  );
-};
-
-const gameCounterShape = () => ({
-  code: field.string().enum(FEEDBACK_GAME_COUNTER_CODES),
-  count: positiveCountField(10_000),
-});
-
-const gameDiagnosticsShape = (includeIdentity = false) => ({
-  ...(includeIdentity
-    ? nestedIdentityShape("feedback-game-diagnostics")
-    : {}),
-  surfaceId: field.string().enum(FEEDBACK_GAME_SURFACE_IDS),
-  consentConfirmed: field.boolean(),
-  provenanceContractId: field
-    .string()
-    .enum(FEEDBACK_GAME_PROVENANCE_CONTRACT_IDS),
-  renderer: field.string().enum(FEEDBACK_RENDERER_BUCKETS),
-  backend: field.string().enum(FEEDBACK_BACKEND_BUCKETS),
-  viewportBucket: field.string().enum(FEEDBACK_VIEWPORT_BUCKETS),
-  frameRateBucket: field.string().enum(FEEDBACK_FRAME_RATE_BUCKETS),
-  frameTimeBucket: field.string().enum(FEEDBACK_FRAME_TIME_BUCKETS),
-  featureIds: field
-    .array(field.string().enum(FEEDBACK_GAME_FEATURE_IDS))
-    .max(FEEDBACK_GAME_FEATURE_IDS.length),
-  counters: field.array(field.object(gameCounterShape())).max(32),
-  errorCodes: field
-    .array(field.string().enum(FEEDBACK_GAME_ERROR_CODES))
-    .max(FEEDBACK_GAME_ERROR_CODES.length),
-});
-
-const isGameDiagnosticsConsistent = (
-  value: Record<string, unknown>,
-): boolean => {
-  const featureIds = Array.isArray(value.featureIds) ? value.featureIds : [];
-  const errorCodes = Array.isArray(value.errorCodes) ? value.errorCodes : [];
-  const counters = Array.isArray(value.counters) ? value.counters : [];
-  const provenance = FEEDBACK_GAME_PROVENANCE_CONTRACTS.find(
-    ({ surfaceId }) => surfaceId === value.surfaceId,
-  );
-  return (
-    value.consentConfirmed === true &&
-    provenance !== undefined &&
-    provenance.contractId === value.provenanceContractId &&
-    new Set(featureIds).size === featureIds.length &&
-    new Set(errorCodes).size === errorCodes.length &&
-    new Set(
-      counters.map((counter) =>
-        typeof counter === "object" && counter !== null
-          ? (counter as { code?: unknown }).code
-          : undefined,
-      ),
-    ).size === counters.length
   );
 };
 
@@ -1742,16 +1601,6 @@ export const FeedbackStructuredOnlyAnalysisResultSchema = createSchema(
   },
   "feedback-structured-only-analysis-result",
   strictOptions,
-);
-
-/** Bucketed, consented renderer diagnostics; it cannot express pixels or DOM. */
-export const FeedbackGameDiagnosticsSchema = createSchema(
-  gameDiagnosticsShape(),
-  "feedback-game-diagnostics",
-  {
-    ...strictOptions,
-    schemaValidator: isGameDiagnosticsConsistent,
-  },
 );
 
 /** Immutable structured bug packet for private blob storage. */

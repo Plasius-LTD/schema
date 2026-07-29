@@ -43,12 +43,14 @@ scanner activity.
   Unicode format controls, HTML, embedded metadata, unknown nodes,
   protocol-relative links, and the closed `http`, `https`, `ftp`, `mailto`,
   `javascript`, `data`, `blob`, and `file` scheme set. Version 1 pins
-  `unicode-15.1.0-nfkc-v1` and explicitly rejects U+1C89 and U+A7F1. The first
-  is a later assignment whose normalization is unchanged; the second gains a
-  compatibility mapping in a newer JavaScript runtime. Neither is assigned in
-  the scanner's Unicode 15.1 tables. The scanner must likewise reject
-  unassigned code points and retain these canaries until both runtimes share a
-  newer reviewed profile.
+  `unicode-15.1.0-nfkc-v1` and validates the original UTF-16 against the
+  complete Unicode 15.1 unassigned corpus before invoking host NFKC. The
+  language-neutral package artifact compactly encodes 707 half-open ranges as
+  canonical delta ULEB128/base64url, covers 824,718 unassigned code points,
+  and is bound to decoded-endpoint SHA-256
+  `591e457524d6b4b988aa7c7687e76c95a78370fea38bbd1b09085be7fd935ef3`.
+  The browser and scanner must use this artifact or prove exhaustive parity
+  with it; runtime-relative Unicode property escapes are not conformant.
 - `FeedbackEncryptedNarrativeEnvelopeSchema` validates only a bounded
   `RSA-OAEP-256+A256GCM` outer envelope with a 96-bit IV and separate 128-bit
   authentication tag. It does not decrypt or inspect ciphertext. Wrapped keys,

@@ -26,6 +26,16 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - Added runtime-frozen feedback vocabularies, Unicode code-point narrative
     limits, canonical cryptographic identifiers, exact cooldown projections,
     and processor-bound replay manifests.
+  - Added an isolated Unicode 15.1 feedback-profile helper and a
+    language-neutral, digest-bound unassigned-code-point corpus generated from
+    the exact reviewed Unicode data package.
+  - Added the focused `@plasius/schema/feedback-diagnostics` entrypoint for
+    canonical renderer feedback vocabulary and runtime validation.
+  - Added the lightweight
+    `@plasius/schema/feedback-diagnostics-vocabulary` entrypoint for
+    browser/renderer consumers that must not load the schema builder.
+  - Added `validateFeedbackGameDiagnostics()` so successful schema output
+    retains its discriminated surface/provenance TypeScript type.
 
 - **Changed**
   - Extended recursive strict unknown-field rejection to direct and array
@@ -60,9 +70,9 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
     metadata; envelope encodings and formatting-node overhead are bounded
     before private scanning.
   - Pinned the transient narrative boundary to the Unicode 15.1 normalization
-    profile with a cross-runtime compatibility canary, and rejected `data`,
-    `blob`, `file`, and protocol-relative URL syntax alongside the existing
-    closed link schemes.
+    profile with exhaustive cross-runtime assignment data, lone-surrogate
+    rejection, and pre-NFKC enforcement; rejected `data`, `blob`, `file`, and
+    protocol-relative URL syntax alongside the existing closed link schemes.
   - Array-enum validation errors no longer echo rejected input values.
   - Nested PII audit paths now expose transient text annotations for review.
   - Pinned the transitive `esbuild` toolchain to a non-vulnerable compatible
