@@ -62,7 +62,14 @@ scanner activity.
 - `FeedbackTransientAnalysisRequestSchema`,
   `FeedbackAnalysisReceiptSchema`, and `FeedbackDerivedAnalysisSchema`
   separate encrypted intake, ephemeral receipts, and persistable closed
-  classifications.
+  classifications. The transient request is purpose-discriminated: `bug`
+  requires a closed `surfaceId`, while `review` forbids one. The service must
+  verify that ID against the caller's projected catalog before ciphertext
+  enters the private scanner. The exported
+  `FeedbackBugTransientAnalysisRequest` and
+  `FeedbackReviewTransientAnalysisRequest` types and
+  `validateFeedbackTransientAnalysisRequest()` preserve that discriminator
+  after runtime validation.
 - `FeedbackSurfaceCatalogSchema` and `FeedbackContextSchema` carry only the
   server-projected closed surface catalog, selected surface, effective flags,
   eligibility, and an at-most-ten-minute RSA wrapping key. They contain no
@@ -84,7 +91,10 @@ scanner activity.
   result rather than creating a joinable receipt.
 - Bug and review submission request schemas are distinct. Privacy/security
   issue selection cannot pass final bug submission because it must route to
-  the confidential security process.
+  the confidential security process. Neither body declares `submissionId`:
+  the consuming HTTP contract requires `Idempotency-Key` as the sole
+  final-submission correlation value, held only in the isolated control plane
+  and never projected into content JSON.
 - `FeedbackBugPacketSchema` and `FeedbackReviewPacketSchema` are immutable
   storage projections with no reporter correlation.
 - `FeedbackGameDiagnosticsSchema` contains coarse renderer, backend, viewport,
@@ -136,6 +146,14 @@ type/version enforcement. Persisted contracts do not declare fields for:
   fingerprints, or raw warnings;
 - embeddings, content hashes, model traces, or arbitrary classifier output.
 
+Final request bodies also reject `submissionId`. Draft IDs remain scoped to
+the short-lived structured-draft contract, and transient request/receipt IDs
+remain scoped to the no-retention scanner exchange. The HTTP
+`Idempotency-Key` is deliberately outside every schema in this package.
+The review analysis branch rejects any supplied `surfaceId`, including
+explicit `null`. Its schema-level validator uses only the frozen
+presence-check context; raw input values are not exposed to the hook.
+
 Validation errors identify only a schema-owned container path. They do not
 echo the unknown key or value. This prevents adversarial property names from
 entering error logs.
@@ -162,6 +180,10 @@ IDs use the closed surface enum rather than generic strings.
 `"compatible"` for existing schemas. Explicit `"reject"` and `"exact"`
 activate the feedback boundary. These options are additive and do not change
 existing serialization behaviour.
+
+This pre-release request alignment changes only ingress schemas and exported
+transient request types. The immutable bug/review packet schemas and their
+identifier-free storage wire shapes are unchanged.
 
 The package evaluates no capability or feature flag. Consumer services must
 compose the relevant feature flag with projected capability decisions and
@@ -194,7 +216,10 @@ The requirement-derived suite covers:
 - malformed/oversized encrypted envelopes and narrative ASTs;
 - all privacy-forbidden packet key classes;
 - scanner structured-only invariants and receipt/projection separation;
+- purpose-discriminated bug/review analysis and pre-decryption surface
+  binding, including explicit-null rejection;
 - partial drafts, explicit final submission, and security-report routing;
+- header-only final-submission idempotency with duplicate body IDs rejected;
 - exact bug/review acceptance cooldowns and bounded context projections;
 - bounded draft/acceptance receipts and a closed structured-only result;
 - bounded consented game diagnostics with no pixel/fingerprint surface;

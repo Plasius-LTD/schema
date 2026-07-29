@@ -86,10 +86,23 @@ export type SchemaUpgradeStep = {
  */
 export type SchemaUpgradeSpec = SchemaUpgradeFunction | SchemaUpgradeStep[];
 
+/**
+ * Presence-only metadata supplied to a schema-level validator.
+ *
+ * Raw input values are intentionally withheld. `wasProvided` distinguishes
+ * an omitted optional field from an explicitly supplied `null`/`undefined`.
+ */
+export interface SchemaValidationContext {
+  readonly wasProvided: (fieldName: string) => boolean;
+}
+
 export interface SchemaOptions {
   version?: string;
   table?: string;
-  schemaValidator?: (value: any) => boolean;
+  schemaValidator?: (
+    value: any,
+    context?: SchemaValidationContext,
+  ) => boolean;
   piiEnforcement?: PIIEnforcement; // How should PII be enforced?
   /**
    * How validation handles properties not declared by the schema.
@@ -151,7 +164,10 @@ export interface Schema<T extends SchemaShape> {
   meta: { entityType: string; version: string };
 
   //// Methods for schema validation
-  schemaValidator: (entity: Infer<T>) => boolean;
+  schemaValidator: (
+    entity: Infer<T>,
+    context?: SchemaValidationContext,
+  ) => boolean;
 
   /**
    * Runs the optional schema-level upgrade function once, without validating.

@@ -1,4 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import type {
+  FeedbackBugTransientAnalysisRequest,
+  FeedbackReviewTransientAnalysisRequest,
+  FeedbackSurfaceId,
+  FeedbackTransientAnalysisRequest,
+} from "../src/index.js";
 import {
   FeedbackAnalysisReceiptSchema,
   FeedbackAcceptanceReceiptSchema,
@@ -34,6 +40,7 @@ import {
   SCHEMA_UNKNOWN_FIELDS_POLICIES,
   createSchema,
   field,
+  validateFeedbackTransientAnalysisRequest,
 } from "../src/index.js";
 
 const UUID_A = "123e4567-e89b-42d3-a456-426614174000";
@@ -623,7 +630,7 @@ describe("transient narrative contracts", () => {
     );
   });
 
-  it("keeps narrative only inside the transient analysis request", () => {
+  it("binds bug analysis to a closed surface for pre-decryption authorisation", () => {
     const envelope = FeedbackEncryptedNarrativeEnvelopeSchema.validate({
       schemaVersion: "1",
       keyId: "feedback-ingestion-key-1",
@@ -639,25 +646,128 @@ describe("transient narrative contracts", () => {
       schemaVersion: "1",
       requestId: UUID_A,
       purpose: "bug",
+      surfaceId: "site.home",
       deterministicRedactionCount: 1,
+      envelope: envelope.value,
+    });
+    const reviewRequest = FeedbackTransientAnalysisRequestSchema.validate({
+      schemaVersion: "1",
+      requestId: UUID_B,
+      purpose: "review",
+      deterministicRedactionCount: 0,
       envelope: envelope.value,
     });
 
     expect(request.valid).toBe(true);
+    expect(reviewRequest.valid).toBe(true);
     expect(request.value).toMatchObject({
       type: "feedback-transient-analysis-request",
       version: "1.0.0",
+      purpose: "bug",
+      surfaceId: "site.home",
       envelope: {
         type: "feedback-encrypted-narrative-envelope",
         version: "1.0.0",
       },
     });
+    expect(
+      FeedbackTransientAnalysisRequestSchema.validate({
+        schemaVersion: "1",
+        requestId: UUID_A,
+        purpose: "bug",
+        deterministicRedactionCount: 1,
+        envelope: envelope.value,
+      }).valid,
+    ).toBe(false);
+    expect(
+      FeedbackTransientAnalysisRequestSchema.validate({
+        schemaVersion: "1",
+        requestId: UUID_B,
+        purpose: "review",
+        surfaceId: null,
+        deterministicRedactionCount: 0,
+        envelope: envelope.value,
+      }).valid,
+    ).toBe(false);
+    expect(
+      FeedbackTransientAnalysisRequestSchema.validate({
+        schemaVersion: "1",
+        requestId: UUID_B,
+        purpose: "review",
+        surfaceId: "site.home",
+        deterministicRedactionCount: 0,
+        envelope: envelope.value,
+      }).valid,
+    ).toBe(false);
     expect(FeedbackAnalysisReceiptSchema.validate(derivedAnalysis).valid).toBe(
       true,
     );
     expect(FeedbackDerivedAnalysisSchema.validate(derivedProjection).valid).toBe(
       true,
     );
+  });
+
+  it("exports a purpose-discriminated transient analysis request type", () => {
+    const envelope = {
+      type: "feedback-encrypted-narrative-envelope",
+      version: "1.0.0",
+      schemaVersion: "1",
+      keyId: "feedback-ingestion-key-1",
+      algorithm: "RSA-OAEP-256+A256GCM",
+      wrappedKey: "A".repeat(342),
+      iv: "B".repeat(16),
+      ciphertext: "C".repeat(512),
+      authenticationTag: "A".repeat(22),
+    } as const;
+    const bugRequest = {
+      type: "feedback-transient-analysis-request",
+      version: "1.0.0",
+      schemaVersion: "1",
+      requestId: UUID_A,
+      purpose: "bug",
+      surfaceId: "site.home",
+      deterministicRedactionCount: 1,
+      envelope,
+    } satisfies FeedbackBugTransientAnalysisRequest;
+    const reviewRequest = {
+      type: "feedback-transient-analysis-request",
+      version: "1.0.0",
+      schemaVersion: "1",
+      requestId: UUID_B,
+      purpose: "review",
+      deterministicRedactionCount: 0,
+      envelope,
+    } satisfies FeedbackReviewTransientAnalysisRequest;
+
+    const assertDiscriminator = (
+      request: FeedbackTransientAnalysisRequest,
+    ) => {
+      if (request.purpose === "bug") {
+        expectTypeOf(request.surfaceId).toMatchTypeOf<FeedbackSurfaceId>();
+      } else {
+        expectTypeOf(request).toMatchTypeOf<FeedbackReviewTransientAnalysisRequest>();
+      }
+    };
+
+    assertDiscriminator(bugRequest);
+    assertDiscriminator(reviewRequest);
+
+    const validated = validateFeedbackTransientAnalysisRequest(bugRequest);
+    expect(validated.valid).toBe(true);
+    if (validated.valid && validated.value.purpose === "bug") {
+      expectTypeOf(validated.value.surfaceId).toMatchTypeOf<FeedbackSurfaceId>();
+      expect(validated.value.surfaceId).toBe("site.home");
+    }
+
+    const rejected = validateFeedbackTransientAnalysisRequest({
+      ...reviewRequest,
+      surfaceId: "site.home",
+    });
+    expect(rejected.valid).toBe(false);
+    if (!rejected.valid) {
+      expect(rejected.value).toBeUndefined();
+      expect(rejected.errors).toEqual(["Schema-level validation failed."]);
+    }
   });
 
   it("uses a separate fallback result instead of issuing structured-only receipts", () => {
@@ -1002,7 +1112,6 @@ describe("feedback context and intake contracts", () => {
   it("validates final bug and review requests separately", () => {
     expect(
       FeedbackBugSubmissionRequestSchema.validate({
-        submissionId: UUID_A,
         draftId: UUID_B,
         surfaceId: "site.home",
         issueType: "accessibility",
@@ -1013,7 +1122,6 @@ describe("feedback context and intake contracts", () => {
 
     expect(
       FeedbackReviewSubmissionRequestSchema.validate({
-        submissionId: UUID_A,
         satisfaction: 5,
         analysisReceiptId: UUID_B,
       }).valid,
@@ -1021,7 +1129,6 @@ describe("feedback context and intake contracts", () => {
 
     expect(
       FeedbackBugSubmissionRequestSchema.validate({
-        submissionId: UUID_A,
         surfaceId: "site.home",
         issueType: "privacy-security",
         severity: 5,
@@ -1030,7 +1137,6 @@ describe("feedback context and intake contracts", () => {
 
     const logSafeBug = FeedbackBugSubmissionRequestSchema.sanitizeForLog(
       {
-        submissionId: UUID_A,
         draftId: UUID_B,
         surfaceId: "site.home",
         issueType: "functionality",
@@ -1038,9 +1144,34 @@ describe("feedback context and intake contracts", () => {
       },
       () => "must-not-pseudonymize",
     );
-    expect(logSafeBug).not.toHaveProperty("submissionId");
     expect(logSafeBug).not.toHaveProperty("draftId");
   });
+
+  it.each(["submissionId", "idempotencyKey"])(
+    "rejects body-level final-submission control field %s",
+    (fieldName) => {
+      expect(
+        FeedbackBugSubmissionRequestSchema.validate({
+          [fieldName]: UUID_A,
+          surfaceId: "site.home",
+          issueType: "functionality",
+          severity: 3,
+        }).valid,
+      ).toBe(false);
+      expect(
+        FeedbackReviewSubmissionRequestSchema.validate({
+          [fieldName]: UUID_A,
+          satisfaction: 5,
+        }).valid,
+      ).toBe(false);
+      expect(
+        FeedbackBugSubmissionRequestSchema.describe().shape,
+      ).not.toHaveProperty(fieldName);
+      expect(
+        FeedbackReviewSubmissionRequestSchema.describe().shape,
+      ).not.toHaveProperty(fieldName);
+    },
+  );
 
   it("bounds drafts to a server-owned 24-hour expiry", () => {
     expect(
@@ -1064,22 +1195,28 @@ describe("feedback context and intake contracts", () => {
     ).toBe(true);
   });
 
-  it("rejects non-v4 workflow identifiers", () => {
+  it("rejects non-v4 draft workflow identifiers", () => {
     expect(
-      FeedbackReviewSubmissionRequestSchema.validate({
-        submissionId: "00000000-0000-0000-0000-000000000000",
+      FeedbackDraftUpsertRequestSchema.validate({
+        draftId: "00000000-0000-0000-0000-000000000000",
+        kind: "review",
+        revision: 1,
         satisfaction: 5,
       }).valid,
     ).toBe(false);
     expect(
-      FeedbackReviewSubmissionRequestSchema.validate({
-        submissionId: "123e4567-e89b-12d3-a456-426614174000",
+      FeedbackDraftUpsertRequestSchema.validate({
+        draftId: "123e4567-e89b-12d3-a456-426614174000",
+        kind: "review",
+        revision: 1,
         satisfaction: 5,
       }).valid,
     ).toBe(false);
     expect(
-      FeedbackReviewSubmissionRequestSchema.validate({
-        submissionId: UUID_A.toUpperCase(),
+      FeedbackDraftUpsertRequestSchema.validate({
+        draftId: UUID_A.toUpperCase(),
+        kind: "review",
+        revision: 1,
         satisfaction: 5,
       }).valid,
     ).toBe(false);
@@ -1256,17 +1393,30 @@ describe("identifier-free persisted feedback packets", () => {
     "embedding",
     "contentHash",
     "modelTrace",
+    "submissionId",
+    "draftId",
+    "requestId",
+    "analysisReceiptId",
+    "envelope",
   ])("rejects privacy-forbidden packet field %s", (fieldName) => {
-    const result = FeedbackBugPacketSchema.validate({
-      ...bugPacket,
-      [fieldName]: "synthetic-sensitive-value",
-    });
+    const results = [
+      FeedbackBugPacketSchema.validate({
+        ...bugPacket,
+        [fieldName]: "synthetic-sensitive-value",
+      }),
+      FeedbackReviewPacketSchema.validate({
+        ...reviewPacket,
+        [fieldName]: "synthetic-sensitive-value",
+      }),
+    ];
 
-    expect(result.valid).toBe(false);
-    expect(result.errors?.join(" ")).not.toContain(
-      "synthetic-sensitive-value",
-    );
-    expect(result.errors?.join(" ")).not.toContain(fieldName);
+    for (const result of results) {
+      expect(result.valid).toBe(false);
+      expect(result.errors?.join(" ")).not.toContain(
+        "synthetic-sensitive-value",
+      );
+      expect(result.errors?.join(" ")).not.toContain(fieldName);
+    }
   });
 });
 
@@ -1340,7 +1490,6 @@ describe("privacy-safe game evidence", () => {
     ).toBe(false);
     expect(
       FeedbackBugSubmissionRequestSchema.validate({
-        submissionId: UUID_A,
         surfaceId: "site.home",
         issueType: "gameplay",
         severity: 3,

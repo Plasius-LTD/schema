@@ -36,8 +36,18 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
     browser/renderer consumers that must not load the schema builder.
   - Added `validateFeedbackGameDiagnostics()` so successful schema output
     retains its discriminated surface/provenance TypeScript type.
+  - Added a frozen, presence-only `SchemaValidationContext` so schema-level
+    validators can distinguish omission from explicit `null` without
+    receiving raw input values.
 
 - **Changed**
+  - Aligned final feedback intake with header-only idempotency by removing the
+    duplicate `submissionId` JSON field from bug and review request schemas;
+    immutable packet shapes remain identifier-free and unchanged.
+  - Discriminated transient analysis requests by purpose: bug analysis now
+    requires a closed surface for pre-decryption authorisation while review
+    analysis explicitly forbids one, with a typed validator preserving the
+    union.
   - Extended recursive strict unknown-field rejection to direct and array
     references, treating unshaped references as exactly `type` plus `id`.
   - Preserved omission of absent optional nested objects across storage,
@@ -62,6 +72,12 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - Runtime-froze the exported schema policy vocabularies.
 
 - **Security**
+  - Bound encrypted bug analysis to a closed surface that services must
+    authorise before decryption and reject duplicate body correlation IDs,
+    preventing control-plane identifiers from drifting toward feedback
+    content storage.
+  - Closed the review discriminator against explicit `surfaceId: null`, which
+    optional-field normalisation would otherwise treat as omission.
   - Added fail-closed source and npm-package admission for the administrative contributor registry and pinned the CI/CD runtime to Node.js 24.18.0 LTS.
   - Moved pull-request validation to GitHub-hosted runners while retaining
     fail-closed same-repository admission and workflow-restricted self-hosted

@@ -5,6 +5,7 @@ import {
   SchemaOptions,
   SchemaShape,
   PIIEnforcement,
+  SchemaValidationContext,
   SchemaUpgradeResult,
   SchemaUpgradeSpec,
   SCHEMA_IDENTITY_POLICIES,
@@ -1392,7 +1393,12 @@ export function createSchema<S extends SchemaShape>(
 
       if (errors.length === 0 && options.schemaValidator) {
         const castValue = result as Infer<S>;
-        if (!options.schemaValidator(castValue)) {
+        const source = input as Record<string, unknown>;
+        const validationContext: SchemaValidationContext = Object.freeze({
+          wasProvided: (fieldName: string) =>
+            Object.prototype.hasOwnProperty.call(source, fieldName),
+        });
+        if (!options.schemaValidator(castValue, validationContext)) {
           errors.push("Schema-level validation failed.");
         }
       }

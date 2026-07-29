@@ -102,6 +102,32 @@ describe("schema.ts – validator coverage", () => {
     expectInvalid(result, "Missing required field: k");
   });
 
+  it("gives schema validators presence metadata without raw input values", () => {
+    let receivedContext:
+      | { readonly wasProvided: (fieldName: string) => boolean }
+      | undefined;
+    const S = createSchema(
+      { optionalValue: field.string().optional() },
+      "PresenceAware",
+      {
+        version: "1.0.0",
+        piiEnforcement: "strict",
+        schemaValidator: (_value, context) => {
+          receivedContext = context;
+          return context?.wasProvided("optionalValue") === false;
+        },
+      },
+    );
+
+    expectValid(S.validate({}));
+    expect(Object.keys(receivedContext ?? {})).toEqual(["wasProvided"]);
+    expect(Object.isFrozen(receivedContext)).toBe(true);
+    expectInvalid(
+      S.validate({ optionalValue: null }),
+      "Schema-level validation failed.",
+    );
+  });
+
   // 3) Immutable field modified (not directly represented)
   it("should fail when immutable field is modified", () => {
     const fixed = field.string().immutable() as any;

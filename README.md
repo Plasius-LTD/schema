@@ -60,6 +60,12 @@ import {
   FeedbackPublicSummarySchema,
   FeedbackRichTextAstSchema,
   FeedbackReviewPacketSchema,
+  FeedbackTransientAnalysisRequestSchema,
+  validateFeedbackTransientAnalysisRequest,
+} from "@plasius/schema";
+import type {
+  FeedbackBugTransientAnalysisRequest,
+  FeedbackReviewTransientAnalysisRequest,
 } from "@plasius/schema";
 ```
 
@@ -89,6 +95,21 @@ inter-block newlines consistently with the private scanner, with a separate
 8,000 UTF-16-unit safety ceiling. HTML, Markdown links, protocol-relative
 links, and `http`, `https`, `ftp`, `mailto`, `javascript`, `data`, `blob`, and
 `file` schemes are rejected.
+
+`FeedbackTransientAnalysisRequestSchema` is closed and discriminated by
+`purpose`. A bug analysis request must carry a closed `surfaceId`; the service
+must verify it against the caller's capability-projected catalog before
+handing ciphertext to the private scanner. A review analysis request must omit
+`surfaceId`. The exported bug/review request types preserve the same
+discriminator for TypeScript consumers;
+`validateFeedbackTransientAnalysisRequest()` preserves that union on
+successful runtime validation.
+
+Final bug and review JSON bodies deliberately contain no `submissionId`.
+Consuming HTTP APIs require `Idempotency-Key` as the sole final-submission
+correlation mechanism and keep it in the isolated abuse/idempotency control
+plane. It must never be copied into a draft, accepted packet, report, log, or
+public/Admin/MCP projection.
 
 The complete Unicode 15.1 unassigned corpus is shipped independently of the
 host runtime:
@@ -160,6 +181,11 @@ const ClosedPacket = createSchema(fields, "closed-packet", {
   identity: "exact",
 });
 ```
+
+Schema-level validators receive an optional, frozen
+`SchemaValidationContext` with only `wasProvided(fieldName)`. This lets a
+closed discriminator distinguish omission from an explicit `null` without
+giving validation hooks access to raw field values.
 
 Unknown-field errors name only the schema-owned container and never echo an
 untrusted key or value. Exact identity rejects a mismatched contract type or
