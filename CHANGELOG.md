@@ -47,6 +47,9 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
     `.nvmrc` and repository guidance.
   - Refreshed compatible development tooling as part of the feedback Epic
     dependency audit; TypeScript 7 remains a separate major migration.
+  - Split release preparation from SHA-bound publication so npm provenance,
+    the release tag, package bytes, and successful `main` CI all identify the
+    same immutable commit.
 
 - **Fixed**
   - Bounded every strict input before recursive cloning, including malformed
@@ -60,6 +63,9 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 - **Security**
   - Added fail-closed source and npm-package admission for the administrative contributor registry and pinned the CI/CD runtime to Node.js 24.18.0 LTS.
+  - Replaced long-lived npm write-token configuration with workflow-bound OIDC
+    trusted publishing and isolated dependency execution from the privileged
+    production publication job.
   - Feedback storage schemas structurally reject narrative, identities,
     pseudonyms, client/network metadata, pixels, arbitrary classifier output,
     and unknown fields without reflecting attacker-controlled keys or values.

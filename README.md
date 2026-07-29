@@ -430,6 +430,19 @@ Licensed under the [Apache-2.0 License](./LICENSE).
 CI keeps the administrative contributor registry outside Git and npm package
 artifacts using exact, case-normalised path checks. CI runs on approved
 self-hosted runners. Release preparation and npm publication use GitHub-hosted
-runners with Node.js 24.18.0 LTS. CD remains disabled until the npm trusted
-publisher binding is verified and the legacy token fallback is removed.
+runners with Node.js 24.18.0 LTS.
+
+Dispatch `cd.yml` from protected `main` with `phase: prepare`. Release metadata
+lands through a unique pull request. After successful push-triggered CI for the
+exact merge SHA, the workflow dispatches a separate `publish` run from that
+same SHA. Publication fails closed if `main`, CI evidence, the version, tag,
+prerelease identity, artifact digests, or npm registry integrity differ.
+
+The read-only validation job installs dependencies, validates the package,
+builds an SBOM, and seals an immutable tarball. The `production` job runs no
+package lifecycle or dependency code; it verifies the exact artifact hand-off
+and publishes that tarball through npm OIDC with provenance. No npm write token
+or fallback is configured. The trusted publisher must be bound to
+`Plasius-LTD/schema`, `cd.yml`, `production`, and `npm publish`. Rollback is to
+disable `cd.yml`; never restore token-based publication.
 <!-- END PLASIUS RELEASE INTEGRITY -->
