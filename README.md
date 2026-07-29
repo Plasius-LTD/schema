@@ -428,9 +428,10 @@ Licensed under the [Apache-2.0 License](./LICENSE).
 ## Release integrity
 
 CI keeps the administrative contributor registry outside Git and npm package
-artifacts using exact, case-normalised path checks. CI runs on approved
-self-hosted runners. Release preparation and npm publication use GitHub-hosted
-runners with Node.js 24.18.0 LTS.
+artifacts using exact, case-normalised path checks. Pull requests run on
+GitHub-hosted runners after same-repository admission; protected `main` CI uses
+the workflow-restricted self-hosted group. Release preparation and npm
+publication use GitHub-hosted runners with Node.js 24.18.0 LTS.
 
 Dispatch `cd.yml` from protected `main` with `phase: prepare`. Release metadata
 lands through a unique pull request. After successful push-triggered CI for the
