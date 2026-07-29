@@ -13,6 +13,9 @@ describe("release workflow trust boundaries", () => {
   it("runs pull-request validation only for same-repository heads", () => {
     expect(ciWorkflow).toMatch(/pull_request:\s*\n\s+branches: \[main\]/u);
     expect(ciWorkflow).not.toContain("pull_request_target:");
+    expect(ciWorkflow).toContain("name: Trusted head admission");
+    expect(ciWorkflow).toContain("External fork pull requests cannot be merged");
+    expect(ciWorkflow.match(/needs: trusted_head/gu)).toHaveLength(2);
     expect(
       ciWorkflow.match(
         /github\.event\.pull_request\.head\.repo\.full_name == github\.repository/gu,

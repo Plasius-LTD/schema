@@ -10,7 +10,26 @@ permissions:
   contents: read
 
 jobs:
+  trusted_head:
+    name: Trusted head admission
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Reject external fork execution
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ "${EVENT_NAME}" = "pull_request" ] && [ "${HEAD_REPOSITORY}" != "${BASE_REPOSITORY}" ]; then
+            echo "External fork pull requests cannot be merged until a maintainer moves the reviewed commit to a repository-owned branch." >&2
+            exit 1
+          fi
+
   build-test:
+    needs: trusted_head
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: [self-hosted, Linux, X64]
     steps:
@@ -99,6 +118,7 @@ jobs:
   # BEGIN PLASIUS PUBLIC ARTIFACT INTEGRITY JOB
   public_artifact_integrity:
     name: Public artifact integrity
+    needs: trusted_head
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 10
