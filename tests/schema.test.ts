@@ -291,7 +291,7 @@ describe("schema.ts – validator coverage", () => {
   // 17) Array of strings invalid enum values
   it("should fail when array of strings contains invalid enum values", () => {
     const result = ArrayOfStrings.validate({ tags: ["alpha", "delta"] });
-    expectInvalid(result, "Field tags contains invalid enum values: delta");
+    expectInvalid(result, "Field tags must contain only: alpha, beta");
   });
 
   // 18) Array of numbers contains a non-number
@@ -360,6 +360,70 @@ describe("schema.ts – validator coverage", () => {
       r,
       "Field items[0] must be a reference object with type: asset"
     );
+  });
+
+  it("recursively rejects hidden fields in direct and array refs", () => {
+    const S = createSchema(
+      {
+        owner: field.ref("user"),
+        owners: field.array(field.ref("user")),
+      },
+      "StrictRefs",
+      {
+        version: "1.0.0",
+        piiEnforcement: "strict",
+        unknownFields: "reject",
+      }
+    );
+
+    expectValid(
+      S.validate({
+        owner: { type: "user", id: "u1" },
+        owners: [{ type: "user", id: "u2" }],
+      })
+    );
+    expect(
+      S.validate({
+        owner: { type: "user", id: "u1", narrative: "canary" },
+        owners: [{ type: "user", id: "u2" }],
+      }).valid
+    ).toBe(false);
+    expect(
+      S.validate({
+        owner: { type: "user", id: "u1" },
+        owners: [{ type: "user", id: "u2", accountId: "canary" }],
+      }).valid
+    ).toBe(false);
+  });
+
+  it("allows only type, id, and declared fields in shaped strict refs", () => {
+    const shapedRef = {
+      type: "ref",
+      refType: "asset",
+      shape: { region: field.string() },
+      isRequired: true,
+    } as any;
+    const S = createSchema({ asset: shapedRef }, "StrictShapedRef", {
+      version: "1.0.0",
+      piiEnforcement: "strict",
+      unknownFields: "reject",
+    });
+
+    expectValid(
+      S.validate({
+        asset: { type: "asset", id: "a1", region: "uk-south" },
+      })
+    );
+    expect(
+      S.validate({
+        asset: {
+          type: "asset",
+          id: "a1",
+          region: "uk-south",
+          filename: "canary",
+        },
+      }).valid
+    ).toBe(false);
   });
 
   // 24) Array of refs – missing required child in ref shape

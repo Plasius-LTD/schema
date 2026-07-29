@@ -20,6 +20,25 @@ export type FieldType = keyof FieldTypeMap;
 
 export type PIIEnforcement = "strict" | "warn" | "none";
 
+/** Supported unknown-field policies in backwards-compatible order. */
+export const SCHEMA_UNKNOWN_FIELDS_POLICIES = Object.freeze([
+  "strip",
+  "reject",
+] as const);
+
+/** Controls whether fields outside a schema shape are stripped or rejected. */
+export type UnknownFieldsPolicy =
+  (typeof SCHEMA_UNKNOWN_FIELDS_POLICIES)[number];
+
+/** Supported schema-identity policies in backwards-compatible order. */
+export const SCHEMA_IDENTITY_POLICIES = Object.freeze([
+  "compatible",
+  "exact",
+] as const);
+
+/** Controls exact enforcement of a schema's declared type and version. */
+export type SchemaIdentityPolicy =
+  (typeof SCHEMA_IDENTITY_POLICIES)[number];
 
 // Schema-level upgrade support
 /** Result returned by a schema upgrade function. */
@@ -72,6 +91,19 @@ export interface SchemaOptions {
   table?: string;
   schemaValidator?: (value: any) => boolean;
   piiEnforcement?: PIIEnforcement; // How should PII be enforced?
+  /**
+   * How validation handles properties not declared by the schema.
+   *
+   * `strip` preserves the historical behaviour. `reject` is intended for
+   * trust boundaries where silently accepting extra data would be unsafe.
+   */
+  unknownFields?: UnknownFieldsPolicy;
+  /**
+   * `exact` rejects a mismatched `type` or `version` after any configured
+   * upgrade. The backwards-compatible default validates only their field
+   * shapes.
+   */
+  identity?: SchemaIdentityPolicy;
   schemaUpgrade?: SchemaUpgradeStep[] | SchemaUpgradeFunction | undefined; // Optional schema-level upgrader (single function or cascade steps)
 }
 

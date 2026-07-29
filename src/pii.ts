@@ -76,6 +76,10 @@ export function prepareForStorage(
       return;
     }
 
+    if (isMissing && def.isRequired === false) {
+      return;
+    }
+
     if (def.type === "object" && def._shape) {
       const obj: any = {};
       for (const [childKey, childDef] of Object.entries(def._shape)) {
@@ -139,6 +143,10 @@ export function prepareForRead(
   ): any => {
     if (!def) return container?.[key];
     const action = def._pii?.action;
+    const hasValue =
+      container !== undefined &&
+      container !== null &&
+      Object.prototype.hasOwnProperty.call(container, key);
     if (action === "encrypt") {
       const enc =
         container?.[key + "Encrypted"] ??
@@ -152,6 +160,9 @@ export function prepareForRead(
     }
     if (action === "clear")
       return container?.hasOwnProperty(key) ? null : undefined;
+    if (!hasValue && def.isRequired === false) {
+      return undefined;
+    }
 
     if (def.type === "object" && def._shape) {
       const obj: any = {};
@@ -160,7 +171,10 @@ export function prepareForRead(
           ? container[key]
           : container ?? {};
       for (const [childKey, childDef] of Object.entries(def._shape)) {
-        obj[childKey] = readValue(childDef, childKey, source);
+        const child = readValue(childDef, childKey, source);
+        if (child !== undefined) {
+          obj[childKey] = child;
+        }
       }
       return obj;
     }
@@ -178,7 +192,10 @@ export function prepareForRead(
       const refShape = def._shape;
       if (refShape) {
         for (const [childKey, childDef] of Object.entries(refShape)) {
-          ref[childKey] = readValue(childDef, childKey, ref);
+          const child = readValue(childDef, childKey, ref);
+          if (child !== undefined) {
+            ref[childKey] = child;
+          }
         }
       }
       return ref;
@@ -189,7 +206,10 @@ export function prepareForRead(
 
   const result: any = {};
   for (const key in shape) {
-    result[key] = readValue(shape[key], key, stored);
+    const value = readValue(shape[key], key, stored);
+    if (value !== undefined) {
+      result[key] = value;
+    }
   }
   return result;
 }
@@ -208,6 +228,12 @@ export function sanitizeForLog(
     ctx: { parentKey?: string } = {}
   ): any => {
     if (!def) return undefined;
+    if (
+      (value === undefined || value === null) &&
+      def.isRequired === false
+    ) {
+      return undefined;
+    }
     const handling = def._pii?.logHandling as PIILogHandling | undefined;
     if (handling === "omit") return undefined;
     if (handling === "redact") return "[REDACTED]";
@@ -270,18 +296,43 @@ export function getPiiAudit(shape: Record<string, any>): Array<{
   purpose?: string;
 }> {
   const piiFields: Array<any> = [];
-  for (const key in shape) {
-    const def = shape[key];
-    if (!def) continue;
+  const visit = (def: any, path: string) => {
+    if (!def) return;
     if (def._pii && def._pii.classification !== "none") {
       piiFields.push({
-        field: key,
+        field: path,
         classification: def._pii.classification,
         action: def._pii.action,
         logHandling: def._pii.logHandling,
         purpose: def._pii.purpose,
       });
     }
+
+    if ((def.type === "object" || def.type === "ref") && def._shape) {
+      for (const [childKey, childDef] of Object.entries(def._shape)) {
+        visit(childDef, `${path}.${childKey}`);
+      }
+    }
+
+    if (def.type === "array" && def.itemType) {
+      const itemPath = `${path}[]`;
+      if (
+        (def.itemType.type === "object" || def.itemType.type === "ref") &&
+        def.itemType._shape
+      ) {
+        for (const [childKey, childDef] of Object.entries(
+          def.itemType._shape,
+        )) {
+          visit(childDef, `${itemPath}.${childKey}`);
+        }
+      } else {
+        visit(def.itemType, itemPath);
+      }
+    }
+  };
+
+  for (const key in shape) {
+    visit(shape[key], key);
   }
   return piiFields;
 }
