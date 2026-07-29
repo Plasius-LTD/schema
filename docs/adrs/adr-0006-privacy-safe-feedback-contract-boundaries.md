@@ -2,7 +2,8 @@
 
 - Status: Accepted
 - Date: 2026-07-18
-- Version: 1.0
+- Updated: 2026-07-29
+- Version: 1.1
 
 ## Context
 
@@ -41,7 +42,10 @@ boundaries:
    corpus and lone surrogates before host NFKC, and closes protocol-relative
    plus executable/local URL schemes.
    Encrypted key material, IVs, ciphertext, and one-use receipt IDs are also
-   clear-on-storage and omit-from-logs.
+   clear-on-storage and omit-from-logs. Analysis requests are closed and
+   purpose-discriminated: a bug request requires a closed surface, while a
+   review request forbids one. The service must verify the bug surface against
+   the caller's capability-projected catalog before decrypting its envelope.
 2. Scanner receipts contain closed classifications plus an opaque one-use
    receipt identifier and server timestamp. Persistable derived analysis drops
    both joinable receipt fields.
@@ -59,9 +63,13 @@ diagnostics dialect. A domain-specific typed validation wrapper preserves the
 surface/provenance discriminant after generic schema validation.
 
 Packet UUIDs are workflow identifiers, not reporter identifiers. Server-owned
-packet/report UUIDs use random UUIDv4 validation. Client-provided draft and
-submission UUIDs are additionally omit-from-logs while remaining available for
-idempotency and draft lookup.
+packet/report UUIDs use random UUIDv4 validation. Client-provided draft UUIDs
+are omit-from-logs and remain available only for short-lived draft lookup.
+Final bug/review JSON bodies contain no submission identifier. Their consuming
+HTTP endpoints require `Idempotency-Key` as the sole final-submission
+correlation value; it remains in the isolated control plane and is never
+copied into feedback JSON, packets, reports, logs, Admin, MCP, or public
+projections.
 Reusable child contracts retain exact schema identity inside parent contracts,
 so schema-validated values compose without stripping metadata or creating a
 second wire shape. No feedback
@@ -93,6 +101,14 @@ private, no-retention privacy scanner before accepting derived analysis.
   feedback vocabularies and preventing process-local mutation of defaults.
 - Transient and persisted analysis are deliberately distinct, preventing
   scanner-receipt joins from leaking into blob packets.
+- Encrypted bug analysis is bound to a closed surface that must be authorised
+  against the caller's projected catalog before decryption; review analysis
+  cannot carry a surface, including an explicit `null`.
+- Schema-level validators receive only frozen field-presence metadata, not raw
+  input values, when exact omission is part of a closed discriminator.
+- Duplicate body-level submission correlation is rejected. Transport
+  idempotency remains outside content schemas and immutable packet shapes are
+  unchanged.
 - Diagnostic surface, provenance, feature, counter, and error identifiers are
   closed enums; arbitrary safe-looking strings cannot disguise personal data.
 - Closed feedback vocabularies and their definition objects are runtime

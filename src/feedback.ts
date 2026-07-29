@@ -28,6 +28,7 @@ import {
   containsFeedbackUnicodeProfileUnsupportedText,
 } from "./feedback-unicode-profile.js";
 import { createSchema } from "./schema.js";
+import type { ValidationIssue } from "./validation.types.js";
 
 export { FEEDBACK_CONTRACT_VERSION };
 export {
@@ -325,6 +326,9 @@ export type FeedbackIntentId = (typeof FEEDBACK_INTENT_IDS)[number];
 /** Closed transient theme identifier. */
 export type FeedbackThemeId = (typeof FEEDBACK_THEME_IDS)[number];
 
+/** Closed site-section identifier eligible for capability projection. */
+export type FeedbackSurfaceId = (typeof FEEDBACK_SURFACE_IDS)[number];
+
 /** Supported rich-text mark. */
 export type FeedbackRichTextMark = "bold" | "italic" | "underline";
 
@@ -370,16 +374,51 @@ export interface FeedbackEncryptedNarrativeEnvelope {
   authenticationTag: string;
 }
 
-/** One-use transient analysis request that must never be persisted or logged. */
-export interface FeedbackTransientAnalysisRequest {
+interface FeedbackTransientAnalysisRequestBase {
   type: "feedback-transient-analysis-request";
   version: typeof FEEDBACK_CONTRACT_VERSION;
   schemaVersion: "1";
   requestId: string;
-  purpose: "bug" | "review";
   deterministicRedactionCount: number;
   envelope: FeedbackEncryptedNarrativeEnvelope;
 }
+
+/**
+ * One-use bug analysis request bound to a closed surface that the service
+ * must authorise before handing ciphertext to the private scanner.
+ */
+export interface FeedbackBugTransientAnalysisRequest
+  extends FeedbackTransientAnalysisRequestBase {
+  purpose: "bug";
+  surfaceId: FeedbackSurfaceId;
+}
+
+/** One-use satisfaction-review analysis request with no site surface. */
+export interface FeedbackReviewTransientAnalysisRequest
+  extends FeedbackTransientAnalysisRequestBase {
+  purpose: "review";
+  surfaceId?: never;
+}
+
+/** Closed purpose-discriminated request that must never be persisted or logged. */
+export type FeedbackTransientAnalysisRequest =
+  | FeedbackBugTransientAnalysisRequest
+  | FeedbackReviewTransientAnalysisRequest;
+
+/** Typed result for the purpose-discriminated transient request validator. */
+export type FeedbackTransientAnalysisRequestValidationResult =
+  | {
+      readonly valid: true;
+      readonly value: FeedbackTransientAnalysisRequest;
+      readonly errors?: never;
+      readonly issues?: never;
+    }
+  | {
+      readonly valid: false;
+      readonly value?: never;
+      readonly errors: readonly string[];
+      readonly issues?: readonly ValidationIssue[];
+    };
 
 /** Closed classifier fields that may be persisted. */
 export interface FeedbackDerivedAnalysis {
@@ -514,17 +553,16 @@ const uuidField = () =>
     .validator((value) => OPAQUE_UUID_V4_PATTERN.test(value))
     .description("Opaque UUID generated for the feedback workflow");
 
-const clientWorkflowIdField = () =>
+const draftIdField = () =>
   field
     .string()
     .validator((value) => OPAQUE_UUID_V4_PATTERN.test(value))
-    .description("One-workflow opaque client correlation identifier")
+    .description("Opaque identifier for one short-lived structured draft")
     .PID({
       classification: "low",
       action: "none",
       logHandling: "omit",
-      purpose:
-        "idempotent feedback workflow correlation that must never enter logs",
+      purpose: "short-lived feedback draft lookup that must never enter logs",
     });
 
 const safeIdField = (maximum = 128) =>
@@ -1334,12 +1372,45 @@ export const FeedbackTransientAnalysisRequestSchema = createSchema(
     schemaVersion: field.string().enum(["1"] as const),
     requestId: transientCorrelationIdField(),
     purpose: field.string().enum(["bug", "review"] as const),
+    surfaceId: surfaceIdField().optional(),
     deterministicRedactionCount: redactionCountField(),
     envelope: field.object(envelopeShape(true)),
   },
   "feedback-transient-analysis-request",
-  strictOptions,
+  {
+    ...strictOptions,
+    schemaValidator: (value, context) => {
+      const surfaceWasProvided =
+        context?.wasProvided("surfaceId") ??
+        Object.prototype.hasOwnProperty.call(value, "surfaceId");
+      return (
+        (value.purpose === "bug" && value.surfaceId !== undefined) ||
+        (value.purpose === "review" && !surfaceWasProvided)
+      );
+    },
+  },
 );
+
+/**
+ * Validate and clone a transient request while preserving its purpose
+ * discriminator for TypeScript consumers.
+ */
+export const validateFeedbackTransientAnalysisRequest = (
+  input: unknown,
+): FeedbackTransientAnalysisRequestValidationResult => {
+  const result = FeedbackTransientAnalysisRequestSchema.validate(input);
+  if (!result.valid || result.value === undefined) {
+    return {
+      valid: false,
+      errors: result.errors ?? ["Transient analysis validation failed."],
+      ...(result.issues === undefined ? {} : { issues: result.issues }),
+    };
+  }
+  return {
+    valid: true,
+    value: result.value as unknown as FeedbackTransientAnalysisRequest,
+  };
+};
 
 /** Identifier-free, closed classifier output safe to copy into a packet. */
 export const FeedbackAnalysisReceiptSchema = createSchema(
@@ -1451,7 +1522,7 @@ export const FeedbackContextSchema = createSchema(
 /** Dirty structured fields sent by focus-loss autosave. */
 export const FeedbackDraftUpsertRequestSchema = createSchema(
   {
-    draftId: clientWorkflowIdField(),
+    draftId: draftIdField(),
     kind: field.string().enum(["bug", "review"] as const),
     revision: revisionField(),
     ...optionalDraftFields(),
@@ -1466,7 +1537,7 @@ export const FeedbackDraftUpsertRequestSchema = createSchema(
 /** Short-lived structured draft packet; narrative and ciphertext are excluded. */
 export const FeedbackDraftPacketSchema = createSchema(
   {
-    draftId: clientWorkflowIdField(),
+    draftId: draftIdField(),
     kind: field.string().enum(["bug", "review"] as const),
     revision: revisionField(),
     surfaceId: surfaceIdField().optional(),
@@ -1505,7 +1576,7 @@ export const FeedbackDraftPacketSchema = createSchema(
 /** ETag-external response after a structured draft is durably saved. */
 export const FeedbackDraftReceiptSchema = createSchema(
   {
-    draftId: clientWorkflowIdField(),
+    draftId: draftIdField(),
     revision: revisionField(),
     savedAt: field.dateTimeISO(),
     expiresAt: field.dateTimeISO(),
@@ -1526,11 +1597,13 @@ export const FeedbackDraftReceiptSchema = createSchema(
   },
 );
 
-/** Explicit final bug submission request. */
+/**
+ * Explicit final bug submission request. Transport idempotency belongs only
+ * in the HTTP Idempotency-Key header and is not part of this JSON contract.
+ */
 export const FeedbackBugSubmissionRequestSchema = createSchema(
   {
-    submissionId: clientWorkflowIdField(),
-    draftId: clientWorkflowIdField().optional(),
+    draftId: draftIdField().optional(),
     surfaceId: surfaceIdField(),
     issueType: field.string().enum(FEEDBACK_ISSUE_TYPES),
     severity: ratingField(),
@@ -1548,11 +1621,13 @@ export const FeedbackBugSubmissionRequestSchema = createSchema(
   },
 );
 
-/** Explicit authenticated satisfaction-review submission request. */
+/**
+ * Explicit authenticated satisfaction-review submission request. Transport
+ * idempotency belongs only in the HTTP Idempotency-Key header.
+ */
 export const FeedbackReviewSubmissionRequestSchema = createSchema(
   {
-    submissionId: clientWorkflowIdField(),
-    draftId: clientWorkflowIdField().optional(),
+    draftId: draftIdField().optional(),
     satisfaction: ratingField(),
     analysisReceiptId: transientCorrelationIdField().optional(),
   },
