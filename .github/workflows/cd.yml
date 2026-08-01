@@ -877,7 +877,7 @@ jobs:
           set -euo pipefail
 
           PUBLISH_ARGS=(--access public --provenance --registry https://registry.npmjs.org --tag "${DIST_TAG}")
-          npm publish "${TARBALL}" --ignore-scripts "${PUBLISH_ARGS[@]}"
+          npm publish "./${TARBALL}" --ignore-scripts "${PUBLISH_ARGS[@]}"
 
       - name: Skip duplicate npm publication
         if: steps.release.outputs.should_publish_npm != 'true'
