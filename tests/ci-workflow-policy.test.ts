@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 const read = (path: string): string =>
@@ -49,6 +50,22 @@ describe("release workflow trust boundaries", () => {
     expect(cdWorkflow).toContain("inputs.expected_commit_sha");
     expect(cdWorkflow).toContain("cancel-in-progress: false");
     expect(cdWorkflow).not.toContain("queue:");
+  });
+
+  it("executes stable release identity derivation on the release runtime", () => {
+    const scriptMatch = releasePrepareWorkflow.match(
+      /EFFECTIVE_PREID=\$\(TARGET_VER="\$\{MAIN_VERSION\}" node -e '\n([\s\S]*?)\n\s+'\)/u,
+    );
+    expect(scriptMatch).not.toBeNull();
+
+    const result = spawnSync(process.execPath, ["-e", scriptMatch?.[1] ?? ""], {
+      encoding: "utf8",
+      env: { ...process.env, TARGET_VER: "1.3.1" },
+    });
+
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("");
   });
 
   it("uses hosted OIDC publication without npm write tokens", () => {
