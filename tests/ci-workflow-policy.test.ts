@@ -107,6 +107,11 @@ describe("release workflow trust boundaries", () => {
     );
   });
 
+  it("publishes the sealed artifact as an explicit local tarball", () => {
+    expect(cdWorkflow).toContain(`npm publish "./\${TARBALL}"`);
+    expect(cdWorkflow).not.toContain(`npm publish "\${TARBALL}"`);
+  });
+
   it("lands release metadata through a unique non-force-pushed pull request", () => {
     expect(releasePrepareWorkflow).toMatch(
       /- name: Checkout main[\s\S]*?persist-credentials: false/u,

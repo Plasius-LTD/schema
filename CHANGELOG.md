@@ -20,6 +20,8 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
     metadata can be handed to the exact-main publication phase.
   - Made tarball validation consume the complete archive listing under
     `pipefail`, avoiding a false missing-build failure caused by `grep -q`.
+  - Passed the sealed package to npm as an explicit local tarball path so npm
+    does not interpret the relative artifact path as a Git repository spec.
 
 - **Security**
   - (placeholder)
