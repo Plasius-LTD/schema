@@ -460,7 +460,7 @@ jobs:
           if (!match) {
             console.error(`Cannot derive pre-release identity from invalid version ${version}.`);
             process.exit(1);
-          fi
+          }
           const identifiers = match[1] ? match[1].split(".") : [];
           if (identifiers.length > 1 && /^[0-9]+$/.test(identifiers.at(-1))) {
             identifiers.pop();
