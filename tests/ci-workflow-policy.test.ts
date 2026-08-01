@@ -82,6 +82,9 @@ describe("release workflow trust boundaries", () => {
   });
 
   it("lands release metadata through a unique non-force-pushed pull request", () => {
+    expect(releasePrepareWorkflow).toMatch(
+      /- name: Checkout main[\s\S]*?persist-credentials: false/u,
+    );
     expect(releasePrepareWorkflow).toContain(
       'BRANCH="release/${TAG}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"',
     );
