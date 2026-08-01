@@ -98,6 +98,15 @@ describe("release workflow trust boundaries", () => {
     expect(publishJob).not.toContain("npm run ");
   });
 
+  it("reads the complete tar listing when pipefail is enabled", () => {
+    expect(cdWorkflow).toContain(
+      `tar -tzf "\${TARBALL}" | grep -E '^package/dist(/|$)' >/dev/null`,
+    );
+    expect(cdWorkflow).not.toContain(
+      `tar -tzf "\${TARBALL}" | grep -Eq '^package/dist(/|$)'`,
+    );
+  });
+
   it("lands release metadata through a unique non-force-pushed pull request", () => {
     expect(releasePrepareWorkflow).toMatch(
       /- name: Checkout main[\s\S]*?persist-credentials: false/u,

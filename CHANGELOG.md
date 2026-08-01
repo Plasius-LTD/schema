@@ -18,6 +18,8 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 - **Fixed**
   - Corrected the release-preparation JavaScript terminator so stable package
     metadata can be handed to the exact-main publication phase.
+  - Made tarball validation consume the complete archive listing under
+    `pipefail`, avoiding a false missing-build failure caused by `grep -q`.
 
 - **Security**
   - (placeholder)
