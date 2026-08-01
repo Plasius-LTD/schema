@@ -44,6 +44,8 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
     receiving raw input values.
 
 - **Changed**
+  - Prevented the read-only checkout credential from overriding the
+    release-preparation GitHub App token when creating a protected release PR.
   - Aligned final feedback intake with header-only idempotency by removing the
     duplicate `submissionId` JSON field from bug and review request schemas;
     immutable packet shapes remain identifier-free and unchanged.
