@@ -20,6 +20,23 @@ Apache-2.0. ESM + CJS builds. TypeScript types included.
 npm install @plasius/schema
 ```
 
+## Personal names and display names
+
+Use `validateName` for first, middle, and last names. It accepts Unicode
+letters and combining marks together with common name punctuation, but it does
+not accept digits. Use `validateDisplayName` for public display names, where
+Unicode decimal digits are also valid:
+
+```ts
+import { validateDisplayName, validateName } from "@plasius/schema";
+
+validateDisplayName("Player 2"); // true
+validateName("Player 2"); // false
+```
+
+Both validators reject empty values, control characters, unsupported symbols,
+and values longer than 256 characters.
+
 ## Packaging policy (template baseline)
 
 `@plasius/schema` is the baseline template for new `@plasius/*` packages.

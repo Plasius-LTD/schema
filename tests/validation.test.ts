@@ -7,6 +7,7 @@ import {
   validateDateTimeISO,
   validateCountryCode,
   validateCurrencyCode,
+  validateDisplayName,
   validateName,
   validateSafeText,
   validatePercentage,
@@ -122,6 +123,27 @@ describe("validateName", () => {
     expect(validateName("Bad\u0001")).toBe(false);
     expect(validateName("Name123")).toBe(false);
     expect(validateName("Name@Example")).toBe(false);
+  });
+});
+
+describe("validateDisplayName", () => {
+  it("accepts culturally inclusive display names with decimal digits", () => {
+    expect(validateDisplayName("Player 2")).toBe(true);
+    expect(validateDisplayName("R2-D2")).toBe(true);
+    expect(validateDisplayName("المستخدم ٢")).toBe(true);
+    expect(validateDisplayName("José Ángel")).toBe(true);
+  });
+
+  it("rejects empty, overlong, control, and unsupported-symbol values", () => {
+    expect(validateDisplayName("   ")).toBe(false);
+    expect(validateDisplayName("Bad\u0001Name")).toBe(false);
+    expect(validateDisplayName("Name@Example")).toBe(false);
+    expect(validateDisplayName("A".repeat(257))).toBe(false);
+  });
+
+  it("does not relax personal-name validation", () => {
+    expect(validateDisplayName("Player 2")).toBe(true);
+    expect(validateName("Player 2")).toBe(false);
   });
 });
 

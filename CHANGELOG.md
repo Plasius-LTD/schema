@@ -10,6 +10,9 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 ## [Unreleased]
 
 - **Added**
+  - Added `validateDisplayName` so Unicode decimal digits can be accepted in
+    display names without relaxing first, middle, or last-name validation for
+    task #41.
   - Added strict, versioned privacy-safe feedback contracts for transient
     rich-text analysis, encrypted envelopes, capability-projected context,
     drafts, bug/review packets, game diagnostics, scheduled reports,
