@@ -616,45 +616,20 @@ jobs:
             case "${MEMBER}" in
               package | package/*) ;;
               *)
-                echo "Unsafe package member outside package/: ${MEMBER}" >&2
+                echo "Unsafe package member outside package/ was found; value was not logged." >&2
                 exit 1
                 ;;
             esac
             case "${MEMBER}" in
               /* | ../* | */../* | */..)
-                echo "Unsafe package traversal member: ${MEMBER}" >&2
-              exit 1
-              ;;
+                echo "Unsafe package traversal member was found; value was not logged." >&2
+                exit 1
+                ;;
             esac
           done < <(tar -tzf "${TARBALL}")
 
-          if ! tar -tzf "${TARBALL}" | node -e '
-            const fs = require("node:fs");
-            const path = require("node:path");
-            const prohibited = "legal/cla-registry.csv";
-            const normalizeArtifactPath = (value) => {
-              const normalized = path.posix
-                .normalize(String(value).replaceAll("\\", "/"))
-                .replace(/^(?:\.\/)+/u, "")
-                .normalize("NFKC")
-                .toLocaleLowerCase("en-US");
-              return normalized.startsWith("package/")
-                ? normalized.slice("package/".length)
-                : normalized;
-            };
-            const members = fs
-              .readFileSync(0, "utf8")
-              .split(/\r?\n/u)
-              .filter(Boolean);
-            if (
-              members.some(
-                (member) => normalizeArtifactPath(member) === prohibited,
-              )
-            ) {
-              process.exit(1);
-            }
-          '; then
-            echo "Package tarball contains prohibited path metadata." >&2
+          if ! tar -tzf "${TARBALL}" | node scripts/verify-public-package.cjs --inventory-stdin; then
+            echo "Package tarball failed the exact path inventory policy; values were not logged." >&2
             exit 1
           fi
 

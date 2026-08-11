@@ -41,8 +41,11 @@ schemas required by Task #32.
 Before dispatch, all of the following must be true:
 
 - dependency install, lint, typecheck, build, unit tests, privacy-policy tests,
-  coverage, full dependency audit, and exact `pack:check` pass;
+  coverage, full dependency audit, and collision-free exact `pack:check` pass;
 - the proposed Git index and package manifest pass the path-only privacy gate;
+- the digest-verified sealed tarball passes the same raw-member identity,
+  cardinality, normalization-collision, and exact-inventory policy immediately
+  before publication;
 - CI succeeds for the exact protected `main` commit;
 - the previously exposed inherited npm credential is revoked or rotated;
 - npm organization owners satisfy enforced 2FA;

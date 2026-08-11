@@ -25,25 +25,35 @@ The package provides a zero-dependency Node.js policy at two boundaries:
    Git index without following symbolic links or reading file contents. It
    rejects every case variant of `.csv`, contributor/CLA registry variants,
    signed-CLA storage directories, and paths containing both a privacy marker
-   and a registry marker. Failures reveal only rule IDs and counts.
+   and a registry marker. Protected CLA/contributor and registry/signature
+   terms are matched across adjacent normalized path segments. Failures reveal
+   only rule IDs and counts.
 2. `pack:check` requires the exact `dist`, `THIRD_PARTY_NOTICES.md`, and
    `unicode` package-file entries. It applies the same private-path rules to the
    `npm pack --dry-run --json --ignore-scripts` manifest and requires an exact
-   match with the final public-artifact path allowlist.
+   match with the final public-artifact path allowlist. The comparison retains
+   prefix-stripped raw member identities and cardinality separately from the
+   canonical policy paths, rejecting duplicate identities, aliases, and
+   many-to-one normalization collisions without logging member values. The
+   digest-verified sealed tarball repeats the same dependency-free exact
+   inventory check before publication.
 
-Paths are normalized across Windows and POSIX separators, the optional npm
-`package/` prefix, compatibility Unicode, and case-insensitive protected
-categories. Dependency/tool directories are excluded from the filesystem walk,
-but tracked paths remain covered by the Git index. Symbolic links and
-non-regular filesystem entries fail closed without being followed or logged. A
-valid Git worktree is mandatory and Git metadata failures fail closed. The
-isolated npm cache is removed in a `finally` boundary on success and failure.
+Paths apply Unicode compatibility normalization before folding Windows and
+POSIX separators, then structurally normalize again. The optional literal npm
+`package/` prefix is removed only from the retained raw identity, and protected
+categories are matched case-insensitively. Dependency/tool directories are
+excluded from the filesystem walk, but tracked paths remain covered by the Git
+index. Symbolic links and non-regular filesystem entries fail closed without
+being followed or logged. A valid Git worktree is mandatory and Git metadata
+failures fail closed. The isolated npm cache is removed in a `finally` boundary
+on success and failure.
 
 CI executes the repository gate before dependency installation, then executes
 policy tests, the package build, and the package gate. Release preparation runs
 the repository gate before changing metadata; exact-main publication repeats it
-before installing dependencies. `prepublishOnly` retains the package gate as a
-final local defense.
+before installing dependencies and repeats the exact inventory policy over the
+sealed tarball after digest verification. `prepublishOnly` retains the package
+gate as a final local defense.
 
 Feature flags and capabilities do not apply: this is a mandatory build-time
 privacy control and cannot be remotely bypassed.

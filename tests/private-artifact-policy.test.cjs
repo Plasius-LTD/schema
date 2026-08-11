@@ -13,6 +13,9 @@ const {
   normalizeArtifactPath,
   normalizePackageArtifactPath,
 } = require("../scripts/private-artifact-policy.cjs");
+const {
+  EXPECTED_PACKED_PATHS,
+} = require("../scripts/verify-public-package.cjs");
 
 test("normalizes artifact paths without reading their contents", () => {
   assert.equal(
@@ -27,6 +30,18 @@ test("normalizes artifact paths without reading their contents", () => {
     normalizeArtifactPath("legal/ＣＬＡ－ＲＥＧＩＳＴＲＹ．ｃｓｖ"),
     "legal/CLA-REGISTRY.csv"
   );
+});
+
+test("normalizes compatibility separators before structural path handling", () => {
+  for (const candidate of [
+    "legal/ＣＬＡ／ＲＥＧＩＳＴＲＹ．ｊｓｏｎ",
+    "legal/ＣＬＡ＼ＲＥＧＩＳＴＲＹ．ｊｓｏｎ",
+    "legal/ＣＬＡ﹨ＲＥＧＩＳＴＲＹ．ｊｓｏｎ",
+  ]) {
+    const normalized = normalizeArtifactPath(candidate);
+    assert.equal(normalized, "legal/CLA/REGISTRY.json");
+    assert.equal(normalizeArtifactPath(normalized), normalized);
+  }
 });
 
 test("rejects CLA registries across platforms and package roots", () => {
@@ -60,6 +75,26 @@ test("rejects CLA registries across platforms and package roots", () => {
   );
 });
 
+test("rejects hierarchical and compatibility-spelled CLA registries", () => {
+  const protectedPaths = [
+    "legal/CLA/REGISTRY.json",
+    "legal/contributors/registry/record.pdf",
+    "legal/CLA-REGISTRY .json",
+    "legal/CLA-REGISTRY\u00a0.json",
+    "legal/CLA-REGISTRY\u3000.json",
+    "legal/ＣＬＡ／ＲＥＧＩＳＴＲＹ．ｊｓｏｎ",
+    "legal/ＣＬＡ＼ＲＥＧＩＳＴＲＹ．ｊｓｏｎ",
+    "legal/ＣＬＡ﹨ＲＥＧＩＳＴＲＹ．ｊｓｏｎ",
+    "legal\\CLA\\REGISTRY.json",
+  ];
+
+  for (const candidate of protectedPaths) {
+    const violations = findPrivateArtifactViolations([candidate]);
+    assert.equal(violations.length, 1);
+    assert.equal(violations[0].ruleId, "contributor-registry");
+  }
+});
+
 test("rejects directories used to store signed CLA submissions", () => {
   const violations = findPrivateArtifactViolations([
     "legal/signed-clas/example.pdf",
@@ -71,6 +106,22 @@ test("rejects directories used to store signed CLA submissions", () => {
   assert.ok(violations.every(({ ruleId }) => ruleId === "signed-cla-storage"));
 });
 
+test("rejects hierarchical and compatibility-spelled signed CLA storage", () => {
+  const protectedPaths = [
+    "legal/signed/CLAs/record.pdf",
+    "legal/signed＼clas/record.pdf",
+    "legal/CLA/signatures/record.pdf",
+    "legal/CLA/acceptances/record.pdf",
+    "legal/CLA/submissions/record.pdf",
+  ];
+
+  for (const candidate of protectedPaths) {
+    const violations = findPrivateArtifactViolations([candidate]);
+    assert.equal(violations.length, 1);
+    assert.equal(violations[0].ruleId, "signed-cla-storage");
+  }
+});
+
 test("allows public CLA templates and contributor documentation", () => {
   assert.deepEqual(
     findPrivateArtifactViolations([
@@ -79,6 +130,8 @@ test("allows public CLA templates and contributor documentation", () => {
       "legal/INDIVIDUAL_CLA.md",
       "legal/CORPORATE_CLA.md",
       "docs/cla-signing-process.md",
+      "src/mcp-admin-registry.ts",
+      "src/cla-signature-schema.ts",
     ]),
     []
   );
@@ -170,6 +223,60 @@ test("normalizes npm tar prefixes and rejects unexpected packed paths", () => {
   );
 });
 
+test("rejects duplicate and normalization-colliding raw package members", () => {
+  const collisionPairs = [
+    ["README.md", "ＲEADME.md"],
+    ["dist/index.js", "ｄist/index.js"],
+    [
+      "unicode/feedback-unicode-15.1.0-unassigned.json",
+      "unicode/ｆeedback-unicode-15.1.0-unassigned.json",
+    ],
+  ];
+
+  for (const [canonical, compatibilitySpelling] of collisionPairs) {
+    assert.throws(
+      () =>
+        comparePackageArtifactAllowlist(
+          [canonical, compatibilitySpelling],
+          [canonical]
+        ),
+      /raw package member identity or cardinality/u
+    );
+    assert.throws(
+      () =>
+        comparePackageArtifactAllowlist(
+          [compatibilitySpelling],
+          [canonical]
+        ),
+      /raw package member identity or cardinality/u
+    );
+  }
+
+  const canonical = "unicode/feedback-unicode-15.1.0-unassigned.json";
+  const compatibilitySpelling =
+    "unicode/ｆeedback-unicode-15.1.0-unassigned.json";
+  assert.throws(
+    () => comparePackageArtifactAllowlist([canonical, canonical], [canonical]),
+    /raw package member identity or cardinality/u
+  );
+  assert.throws(
+    () =>
+      comparePackageArtifactAllowlist(
+        [`package/${canonical}`, canonical],
+        [canonical]
+      ),
+    /raw package member identity or cardinality/u
+  );
+  assert.throws(
+    () =>
+      comparePackageArtifactAllowlist(
+        [canonical],
+        [canonical, compatibilitySpelling]
+    ),
+    /raw package member identity or cardinality/u
+  );
+});
+
 test("public package verification cleans its cache after a policy failure", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "private-artifact-pack-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -193,6 +300,58 @@ test("public package verification cleans its cache after a policy failure", (t) 
 
   assert.equal(result.status, 1, result.stderr);
   assert.equal(fs.existsSync(cacheDirectory), false);
+});
+
+test("sealed inventory mode rejects raw collisions without logging member names", () => {
+  const canonical =
+    "package/unicode/feedback-unicode-15.1.0-unassigned.json";
+  const compatibilitySpelling =
+    "package/unicode/ｆeedback-unicode-15.1.0-unassigned.json";
+  const verifier = path.resolve(
+    __dirname,
+    "../scripts/verify-public-package.cjs"
+  );
+  const result = spawnSync(process.execPath, [verifier, "--inventory-stdin"], {
+    encoding: "utf8",
+    input: `${canonical}\n${compatibilitySpelling}\n`,
+  });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /raw package member identity or cardinality/u);
+  assert.doesNotMatch(result.stderr, /feedback-unicode|\uff46eedback/u);
+});
+
+test("sealed inventory mode preserves exact raw line identities", () => {
+  const verifier = path.resolve(
+    __dirname,
+    "../scripts/verify-public-package.cjs"
+  );
+  const exactInventory = EXPECTED_PACKED_PATHS.map(
+    (member) => `package/${member}`
+  );
+  const accepted = spawnSync(
+    process.execPath,
+    [verifier, "--inventory-stdin"],
+    {
+      encoding: "utf8",
+      input: `${exactInventory.join("\n")}\n`,
+    }
+  );
+  assert.equal(accepted.status, 0, accepted.stderr);
+
+  const carriageReturnAlias = [...exactInventory];
+  carriageReturnAlias[0] += "\r";
+  const rejected = spawnSync(
+    process.execPath,
+    [verifier, "--inventory-stdin"],
+    {
+      encoding: "utf8",
+      input: `${carriageReturnAlias.join("\n")}\n`,
+    }
+  );
+  assert.equal(rejected.status, 1);
+  assert.match(rejected.stderr, /exact allowlist/u);
+  assert.doesNotMatch(rejected.stderr, /LICENSE/u);
 });
 
 test("repository discovery is path-only and skips dependency metadata", (t) => {
@@ -275,6 +434,35 @@ test("repository gate reports only rule counts, never suspected path values", (t
   assert.equal(result.status, 1);
   assert.match(result.stderr, /signed-cla-storage: 1/u);
   assert.doesNotMatch(result.stderr, new RegExp(canary, "u"));
+});
+
+test("repository gate rejects hierarchical CLA registries without logging paths", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "private-artifact-hierarchy-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+
+  const init = spawnSync("git", ["init", "--quiet", root], { encoding: "utf8" });
+  assert.equal(init.status, 0, init.stderr);
+
+  const hierarchicalDirectory = path.join(root, "legal", "CLA");
+  fs.mkdirSync(hierarchicalDirectory, { recursive: true });
+  fs.closeSync(fs.openSync(path.join(hierarchicalDirectory, "REGISTRY.json"), "w"));
+  fs.closeSync(fs.openSync(path.join(root, "legal", "CLA-REGISTRY .json"), "w"));
+  const add = spawnSync("git", ["-C", root, "add", "-f", "--all"], {
+    encoding: "utf8",
+  });
+  assert.equal(add.status, 0, add.stderr);
+
+  const verifier = path.resolve(
+    __dirname,
+    "../scripts/verify-private-artifacts.cjs"
+  );
+  const result = spawnSync(process.execPath, [verifier, root], {
+    encoding: "utf8",
+  });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /contributor-registry: 2/u);
+  assert.doesNotMatch(result.stderr, /CLA|REGISTRY|\.json/u);
 });
 
 test("tracked paths remain governed until their deletion is staged", (t) => {

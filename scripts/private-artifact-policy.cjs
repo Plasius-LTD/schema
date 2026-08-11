@@ -17,14 +17,14 @@ const PRIVATE_ARTIFACT_RULES = Object.freeze([
     description:
       "Contributor and CLA acceptance registries must remain in approved private systems.",
     pattern:
-      /(?:^|\/)(?:cla|contributors?)[ ._-]*registry(?:\.[^/]*)?(?:\/|$)/iu,
+      /(?:^|\/)(?:cla|contributors?)[ ._-]*(?:\/[ ._-]*)?registry[ ._-]*(?:\.[^/]*)?(?:\/|$)/iu,
   }),
   Object.freeze({
     id: "signed-cla-storage",
     description:
       "Signed CLA submissions and signature records must remain in approved private systems.",
     pattern:
-      /(?:^|\/)(?:signed[ ._-]*clas?|cla[ ._-]*(?:acceptances?|signatures?|submissions?))(?:\/|$)/iu,
+      /(?:^|\/)(?:signed[ ._-]*(?:\/[ ._-]*)?clas?|cla[ ._-]*(?:\/[ ._-]*)?(?:acceptances?|signatures?|submissions?))[ ._-]*(?:\.[^/]*)?(?:\/|$)/iu,
   }),
   Object.freeze({
     id: "csv-artifact",
@@ -58,9 +58,13 @@ function normalizeArtifactPath(artifactPath) {
     throw new TypeError("Artifact paths must be strings.");
   }
 
-  const normalized = path.posix
-    .normalize(artifactPath.replace(/\\/gu, "/"))
-    .normalize("NFKC");
+  const compatibilityNormalized = artifactPath.normalize("NFKC");
+  const normalized = path.posix.normalize(
+    path.posix
+      .normalize(compatibilityNormalized.replace(/\\/gu, "/"))
+      .normalize("NFKC")
+      .replace(/\\/gu, "/")
+  );
   if (normalized === ".") {
     return "";
   }
@@ -201,12 +205,20 @@ function findPackageFilesPolicyViolations(packageFiles, expectedEntries = []) {
  * @returns {{missingPaths: string[], unexpectedPaths: string[]}}
  */
 function comparePackageArtifactAllowlist(artifactPaths, allowedPaths) {
-  const actual = new Set(
-    [...artifactPaths].map((entry) => normalizePackageArtifactPath(entry))
-  );
-  const allowed = new Set(
-    [...allowedPaths].map((entry) => normalizePackageArtifactPath(entry))
-  );
+  const actualInventory = createPackageArtifactInventory(artifactPaths);
+  const allowedInventory = createPackageArtifactInventory(allowedPaths);
+
+  for (const [normalizedPath, rawPath] of actualInventory.rawByNormalizedPath) {
+    if (
+      allowedInventory.rawByNormalizedPath.has(normalizedPath) &&
+      allowedInventory.rawByNormalizedPath.get(normalizedPath) !== rawPath
+    ) {
+      throwRawPackageIdentityError();
+    }
+  }
+
+  const actual = new Set(actualInventory.rawByNormalizedPath.keys());
+  const allowed = new Set(allowedInventory.rawByNormalizedPath.keys());
 
   return {
     missingPaths: [...allowed]
@@ -216,6 +228,50 @@ function comparePackageArtifactAllowlist(artifactPaths, allowedPaths) {
       .filter((entry) => !allowed.has(entry))
       .sort(compareArtifactPaths),
   };
+}
+
+/**
+ * Retain collision-free, prefix-stripped raw npm member identities alongside
+ * the canonical paths used by policy matching. Raw values are deliberately
+ * never included in errors because a rejected member may itself be sensitive.
+ *
+ * @param {Iterable<string>} artifactPaths
+ * @returns {{rawPaths: Set<string>, rawByNormalizedPath: Map<string, string>}}
+ */
+function createPackageArtifactInventory(artifactPaths) {
+  const rawPaths = new Set();
+  const rawByNormalizedPath = new Map();
+
+  for (const entry of artifactPaths) {
+    if (typeof entry !== "string") {
+      throw new TypeError("Artifact paths must be strings.");
+    }
+
+    const rawPath = entry.startsWith("package/")
+      ? entry.slice("package/".length)
+      : entry;
+    if (rawPaths.has(rawPath)) {
+      throwRawPackageIdentityError();
+    }
+    rawPaths.add(rawPath);
+
+    const normalizedPath = normalizePackageArtifactPath(entry);
+    if (
+      rawByNormalizedPath.has(normalizedPath) &&
+      rawByNormalizedPath.get(normalizedPath) !== rawPath
+    ) {
+      throwRawPackageIdentityError();
+    }
+    rawByNormalizedPath.set(normalizedPath, rawPath);
+  }
+
+  return { rawPaths, rawByNormalizedPath };
+}
+
+function throwRawPackageIdentityError() {
+  throw new Error(
+    "Packed paths failed raw package member identity or cardinality checks; values were not logged."
+  );
 }
 
 function normalizePackageFilesEntry(entry) {

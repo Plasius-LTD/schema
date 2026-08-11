@@ -72,7 +72,15 @@ const REQUIRED_THIRD_PARTY_NOTICE_FRAGMENTS = [
   "SPDX-License-Identifier: Unicode-3.0",
 ];
 
-function main() {
+function main(argv = process.argv.slice(2)) {
+  if (argv.length === 1 && argv[0] === "--inventory-stdin") {
+    verifyStdinPackageInventory();
+    return;
+  }
+  if (argv.length > 0) {
+    throw new Error("Unsupported public package check arguments.");
+  }
+
   const cacheDir = path.resolve(process.cwd(), ".npm-cache-packcheck");
   try {
     let repositoryPaths;
@@ -133,29 +141,47 @@ function main() {
       .map((entry) => entry?.path)
       .filter((entry) => typeof entry === "string");
 
-    const privateArtifactViolations = findPrivateArtifactViolations(paths);
-    if (privateArtifactViolations.length > 0) {
-      throw new Error(
-        `Packed output contains prohibited private artifact path metadata (${summarizePrivateArtifactViolations(privateArtifactViolations)}); values were not logged.`
-      );
-    }
-
-    const packageAllowlist = comparePackageArtifactAllowlist(
-      paths,
-      EXPECTED_PACKED_PATHS
-    );
-    if (
-      packageAllowlist.missingPaths.length > 0 ||
-      packageAllowlist.unexpectedPaths.length > 0
-    ) {
-      throw new Error(
-        `Packed paths differ from the exact allowlist (${packageAllowlist.missingPaths.length} missing, ${packageAllowlist.unexpectedPaths.length} unexpected); unexpected values were not logged.`
-      );
-    }
+    verifyPackagePathInventory(paths);
 
     verifyPackageContents({ packageJson, paths });
   } finally {
     fs.rmSync(cacheDir, { force: true, recursive: true });
+  }
+}
+
+function verifyStdinPackageInventory() {
+  const input = fs.readFileSync(0);
+  if (input.byteLength > 16 * 1024 * 1024) {
+    throw new Error("Packed path inventory exceeds the 16 MiB limit.");
+  }
+
+  const paths = input
+    .toString("utf8")
+    .split("\n")
+    .filter((entry) => entry.length > 0);
+  verifyPackagePathInventory(paths);
+  console.log("Sealed package inventory check passed.");
+}
+
+function verifyPackagePathInventory(paths) {
+  const privateArtifactViolations = findPrivateArtifactViolations(paths);
+  if (privateArtifactViolations.length > 0) {
+    throw new Error(
+      `Packed output contains prohibited private artifact path metadata (${summarizePrivateArtifactViolations(privateArtifactViolations)}); values were not logged.`
+    );
+  }
+
+  const packageAllowlist = comparePackageArtifactAllowlist(
+    paths,
+    EXPECTED_PACKED_PATHS
+  );
+  if (
+    packageAllowlist.missingPaths.length > 0 ||
+    packageAllowlist.unexpectedPaths.length > 0
+  ) {
+    throw new Error(
+      `Packed paths differ from the exact allowlist (${packageAllowlist.missingPaths.length} missing, ${packageAllowlist.unexpectedPaths.length} unexpected); values were not logged.`
+    );
   }
 }
 
@@ -468,9 +494,17 @@ function collectFiles(root, extensions) {
   return files;
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(`Public package check failed: ${error.message}`);
-  process.exitCode = 1;
+if (require.main === module) {
+  try {
+    main();
+  } catch (error) {
+    console.error(`Public package check failed: ${error.message}`);
+    process.exitCode = 1;
+  }
 }
+
+module.exports = {
+  EXPECTED_PACKED_PATHS,
+  main,
+  verifyPackagePathInventory,
+};

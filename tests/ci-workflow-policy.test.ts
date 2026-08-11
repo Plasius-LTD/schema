@@ -115,6 +115,21 @@ describe("release workflow trust boundaries", () => {
     expect(cdWorkflow).not.toContain(`npm publish "\${TARBALL}"`);
   });
 
+  it("rechecks the sealed tarball with the shared exact inventory policy", () => {
+    const digestVerification = cdWorkflow.indexOf(
+      'TARBALL_SHA256="$(sha256sum "${TARBALL}"',
+    );
+    const inventoryVerification = cdWorkflow.indexOf(
+      'tar -tzf "${TARBALL}" | node scripts/verify-public-package.cjs --inventory-stdin',
+    );
+    const publish = cdWorkflow.indexOf('npm publish "./${TARBALL}"');
+
+    expect(digestVerification).toBeGreaterThan(-1);
+    expect(inventoryVerification).toBeGreaterThan(digestVerification);
+    expect(publish).toBeGreaterThan(inventoryVerification);
+    expect(cdWorkflow).not.toContain('const prohibited = "legal/cla-registry.csv"');
+  });
+
   it("lands release metadata through a unique non-force-pushed pull request", () => {
     expect(releasePrepareWorkflow).toMatch(
       /- name: Checkout main[\s\S]*?persist-credentials: false/u,

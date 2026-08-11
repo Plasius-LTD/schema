@@ -28,8 +28,13 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
     prevent CSVs, contributor registries, signed CLA artifacts, and private
     registry variants from entering source control or release artifacts without
     inspecting or logging suspected file contents or path values.
+  - Hardened the privacy gate against hierarchical, compatibility-separated,
+    case-variant, and trailing-space CLA registry paths by normalizing Unicode
+    before structural separators and matching protected adjacent segments.
   - Required explicit package `files` metadata and an exact final tarball-path
-    allowlist, with isolated npm cache cleanup on both success and failure.
+    allowlist, with collision-free raw member identity/cardinality enforcement,
+    a repeated check over the sealed publication tarball, and isolated npm cache
+    cleanup on both success and failure.
   - Updated the development-tool graph to patched `brace-expansion`, `nanoid`,
     and `postcss` releases after the final release-readiness audit.
 
