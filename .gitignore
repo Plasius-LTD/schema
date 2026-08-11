@@ -1,7 +1,21 @@
 node_modules/
 dist/
 coverage/
+.npm-cache-packcheck/
 *.log
+# CSV files are prohibited by the repository privacy policy.
+**/*.[cC][sS][vV]
+# CLA acceptance records contain personal data and belong in approved private systems.
+**/CLA-REGISTRY.*
+**/cla-registry.*
+**/contributor-registry.*
+**/contributor_registry.*
+**/signed-clas/**
+**/signed_clas/**
+**/cla-submissions/**
+**/cla_submissions/**
+**/cla-signatures/**
+**/cla_signatures/**
 # Private key material in cert directories (never commit)
 **/certs/**/*-key.pem
 **/certs/**/*.key

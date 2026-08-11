@@ -98,6 +98,10 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
 
+      - name: Verify private artifact policy
+        working-directory: ${{ inputs.package_directory }}
+        run: npm run privacy:check
+
       - name: Prepare and land release metadata
         id: release
         env:

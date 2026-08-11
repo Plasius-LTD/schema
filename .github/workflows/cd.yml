@@ -79,6 +79,10 @@ jobs:
             echo "skip_reason=${SKIP_REASON}"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Verify private artifact policy
+        if: steps.release.outputs.should_finalize_release == 'true'
+        run: npm run privacy:check
+
       - name: Skip when package version is already published
         if: steps.release.outputs.should_publish_npm != 'true'
         run: echo "${{ steps.release.outputs.skip_reason }}"

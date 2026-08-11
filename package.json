@@ -20,8 +20,9 @@
   },
   "scripts": {
     "build": "tsup",
-    "test": "vitest run",
+    "test": "vitest run && npm run test:privacy",
     "test:watch": "vitest",
+    "test:privacy": "node --test tests/private-artifact-policy.test.cjs",
     "typecheck": "tsc --noEmit",
     "audit:eslint": "eslint . --max-warnings=0",
     "audit:deps": "npm ls --all --omit=optional --omit=peer > /dev/null 2>&1 || true",
@@ -31,7 +32,8 @@
     "prepare": "npm run build",
     "clean": "rimraf dist",
     "test:coverage": "vitest run --coverage",
-    "pack:check": "node scripts/verify-public-package.cjs",
+    "privacy:check": "node scripts/verify-private-artifacts.cjs",
+    "pack:check": "npm run privacy:check && node scripts/verify-public-package.cjs",
     "prepublishOnly": "npm run build && npm run pack:check"
   },
   "keywords": [
