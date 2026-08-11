@@ -45,6 +45,35 @@ uses `dist-cjs/*.js` with `type: module`, it must generate
 `dist-cjs/package.json` with `{ "type": "commonjs" }` and validate this in
 `pack:check` before publish.
 
+### Private-artifact policy
+
+Signed contributor agreements and contributor acceptance records belong only
+in the approved access-controlled system outside source control. The
+zero-dependency repository gate inspects path metadata without opening,
+hashing, copying, or logging suspected private artifacts:
+
+```bash
+npm run privacy:check
+npm run test:privacy
+npm run build
+npm run pack:check
+```
+
+`privacy:check` checks both filesystem metadata and the proposed Git index. It
+rejects CSV files, contributor/CLA registry variants, signed-CLA storage
+directories, and paths that combine privacy and registry markers. An unstaged
+deletion remains a failure until the deletion is staged. Invalid Git worktree
+metadata, symbolic links, and non-regular entries fail closed, and failures
+report only rule IDs and counts.
+
+`pack:check` requires the exact `dist`, `THIRD_PARTY_NOTICES.md`, and `unicode`
+`package.json.files` entries, then compares the normalized `npm pack --dry-run`
+manifest with the package's exact public allowlist. Its isolated npm cache is
+removed whether the check passes or fails. CI runs the repository gate before
+dependency installation; release preparation and publication repeat the gate.
+These path controls are defense in depth and do not replace secret scanning,
+access controls, or incident response.
+
 ---
 
 ## Player-system event contracts

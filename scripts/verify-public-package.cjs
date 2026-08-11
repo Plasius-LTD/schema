@@ -1,7 +1,60 @@
 #!/usr/bin/env node
-const { execFileSync, execSync } = require("node:child_process");
+const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
+const {
+  collectRepositoryArtifactPaths,
+  comparePackageArtifactAllowlist,
+  findPackageFilesPolicyViolations,
+  findPrivateArtifactViolations,
+  normalizePackageArtifactPath,
+} = require("./private-artifact-policy.cjs");
+
+const EXPECTED_PACKAGE_FILES = Object.freeze([
+  "dist",
+  "THIRD_PARTY_NOTICES.md",
+  "unicode",
+]);
+
+const EXPECTED_PACKED_PATHS = Object.freeze([
+  "LICENSE",
+  "README.md",
+  "THIRD_PARTY_NOTICES.md",
+  "dist/chunk-6FE4FLKF.js",
+  "dist/chunk-6FE4FLKF.js.map",
+  "dist/chunk-AG2NAPDC.js",
+  "dist/chunk-AG2NAPDC.js.map",
+  "dist/chunk-UQHPDQZX.js",
+  "dist/chunk-UQHPDQZX.js.map",
+  "dist/feedback-diagnostics-BaniQAFS.d.cts",
+  "dist/feedback-diagnostics-CnsI0B9-.d.ts",
+  "dist/feedback-diagnostics-vocabulary.cjs",
+  "dist/feedback-diagnostics-vocabulary.cjs.map",
+  "dist/feedback-diagnostics-vocabulary.d.cts",
+  "dist/feedback-diagnostics-vocabulary.d.ts",
+  "dist/feedback-diagnostics-vocabulary.js",
+  "dist/feedback-diagnostics-vocabulary.js.map",
+  "dist/feedback-diagnostics.cjs",
+  "dist/feedback-diagnostics.cjs.map",
+  "dist/feedback-diagnostics.d.cts",
+  "dist/feedback-diagnostics.d.ts",
+  "dist/feedback-diagnostics.js",
+  "dist/feedback-diagnostics.js.map",
+  "dist/feedback-unicode-profile.cjs",
+  "dist/feedback-unicode-profile.cjs.map",
+  "dist/feedback-unicode-profile.d.cts",
+  "dist/feedback-unicode-profile.d.ts",
+  "dist/feedback-unicode-profile.js",
+  "dist/feedback-unicode-profile.js.map",
+  "dist/index.cjs",
+  "dist/index.cjs.map",
+  "dist/index.d.cts",
+  "dist/index.d.ts",
+  "dist/index.js",
+  "dist/index.js.map",
+  "package.json",
+  "unicode/feedback-unicode-15.1.0-unassigned.json",
+]);
 
 const REQUIRED_THIRD_PARTY_NOTICE_FRAGMENTS = [
   "Copyright Mathias Bynens <https://mathiasbynens.be/>",
@@ -20,71 +73,108 @@ const REQUIRED_THIRD_PARTY_NOTICE_FRAGMENTS = [
 ];
 
 function main() {
-  execFileSync(
-    process.execPath,
-    ["scripts/generate-feedback-unicode-profile.cjs", "--check"],
-    {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    }
-  );
-
   const cacheDir = path.resolve(process.cwd(), ".npm-cache-packcheck");
-  const output = execSync(
-    `npm pack --dry-run --json --ignore-scripts --cache "${cacheDir}"`,
-    {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
+  try {
+    let repositoryPaths;
+    try {
+      repositoryPaths = collectRepositoryArtifactPaths(process.cwd());
+    } catch {
+      throw new Error(
+        "Repository path metadata could not be evaluated; details were not logged."
+      );
     }
-  );
+    const repositoryViolations =
+      findPrivateArtifactViolations(repositoryPaths);
+    if (repositoryViolations.length > 0) {
+      throw new Error(
+        `Prohibited private artifact path metadata was found (${summarizePrivateArtifactViolations(repositoryViolations)}); values were not logged.`
+      );
+    }
 
-  const parsed = parseNpmPackJson(output);
-  const files = Array.isArray(parsed) && parsed[0]?.files ? parsed[0].files : [];
-  const paths = files.map((entry) => entry.path);
-  const requiredPaths = [
-    "THIRD_PARTY_NOTICES.md",
-    "dist/feedback-diagnostics.cjs",
-    "dist/feedback-diagnostics.d.ts",
-    "dist/feedback-diagnostics.js",
-    "dist/feedback-diagnostics-vocabulary.cjs",
-    "dist/feedback-diagnostics-vocabulary.d.ts",
-    "dist/feedback-diagnostics-vocabulary.js",
-    "dist/feedback-unicode-profile.cjs",
-    "dist/feedback-unicode-profile.d.ts",
-    "dist/feedback-unicode-profile.js",
-    "unicode/feedback-unicode-15.1.0-unassigned.json",
-  ];
-  const missingPaths = requiredPaths.filter(
-    (requiredPath) => !paths.includes(requiredPath)
-  );
-  if (missingPaths.length > 0) {
-    console.error("Public package check failed. Required files are missing:");
-    for (const filePath of missingPaths) {
-      console.error(`- ${filePath}`);
+    const packageJson = JSON.parse(
+      fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf8")
+    );
+    const packageFilesViolations = findPackageFilesPolicyViolations(
+      packageJson.files,
+      EXPECTED_PACKAGE_FILES
+    );
+    if (packageFilesViolations.length > 0) {
+      const ruleIds = [
+        ...new Set(packageFilesViolations.map(({ ruleId }) => ruleId)),
+      ].sort();
+      throw new Error(
+        `package.json files policy failed (${ruleIds.join(", ")}).`
+      );
     }
-    process.exit(1);
+
+    execFileSync(
+      process.execPath,
+      ["scripts/generate-feedback-unicode-profile.cjs", "--check"],
+      {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      }
+    );
+
+    let output;
+    try {
+      output = runNpmPack(cacheDir);
+    } catch {
+      throw new Error(
+        "npm package inventory could not be produced; details were not logged."
+      );
+    }
+    const parsed = parseNpmPackJson(output);
+    const files =
+      Array.isArray(parsed) && Array.isArray(parsed[0]?.files)
+        ? parsed[0].files
+        : [];
+    const paths = files
+      .map((entry) => entry?.path)
+      .filter((entry) => typeof entry === "string");
+
+    const privateArtifactViolations = findPrivateArtifactViolations(paths);
+    if (privateArtifactViolations.length > 0) {
+      throw new Error(
+        `Packed output contains prohibited private artifact path metadata (${summarizePrivateArtifactViolations(privateArtifactViolations)}); values were not logged.`
+      );
+    }
+
+    const packageAllowlist = comparePackageArtifactAllowlist(
+      paths,
+      EXPECTED_PACKED_PATHS
+    );
+    if (
+      packageAllowlist.missingPaths.length > 0 ||
+      packageAllowlist.unexpectedPaths.length > 0
+    ) {
+      throw new Error(
+        `Packed paths differ from the exact allowlist (${packageAllowlist.missingPaths.length} missing, ${packageAllowlist.unexpectedPaths.length} unexpected); unexpected values were not logged.`
+      );
+    }
+
+    verifyPackageContents({ packageJson, paths });
+  } finally {
+    fs.rmSync(cacheDir, { force: true, recursive: true });
   }
+}
+
+function verifyPackageContents({ packageJson, paths }) {
+  const normalizedPaths = paths.map(normalizePackageArtifactPath);
   const expectedUnicodePaths = [
     "unicode/feedback-unicode-15.1.0-unassigned.json",
   ];
-  const unexpectedUnicodePaths = paths.filter(
+  const unexpectedUnicodePaths = normalizedPaths.filter(
     (filePath) =>
       filePath.startsWith("unicode/") &&
       !expectedUnicodePaths.includes(filePath)
   );
   if (unexpectedUnicodePaths.length > 0) {
-    console.error(
-      "Public package check failed. Unexpected Unicode files are present:"
+    throw new Error(
+      `Unexpected Unicode files are present (${unexpectedUnicodePaths.length}); values were not logged.`
     );
-    for (const filePath of unexpectedUnicodePaths) {
-      console.error(`- ${filePath}`);
-    }
-    process.exit(1);
   }
 
-  const packageJson = JSON.parse(
-    fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf8")
-  );
   const notices = fs
     .readFileSync(
       path.resolve(process.cwd(), "THIRD_PARTY_NOTICES.md"),
@@ -96,10 +186,9 @@ function main() {
     (fragment) => !notices.includes(fragment)
   );
   if (missingNoticeFragments.length > 0) {
-    console.error(
-      "Public package check failed. Third-party license notices are incomplete."
+    throw new Error(
+      "Third-party license notices are incomplete."
     );
-    process.exit(1);
   }
   const expectedExports = {
     "./feedback-diagnostics": {
@@ -125,10 +214,7 @@ function main() {
       JSON.stringify(packageJson.exports?.[exportPath]) !==
       JSON.stringify(expected)
     ) {
-      console.error(
-        `Public package check failed. Export ${exportPath} is incorrect.`
-      );
-      process.exit(1);
+      throw new Error(`Export ${exportPath} is incorrect.`);
     }
   }
 
@@ -140,20 +226,18 @@ function main() {
     "utf8"
   );
   if (Buffer.byteLength(vocabularyBundle, "utf8") > 16 * 1024) {
-    console.error(
-      "Public package check failed. Diagnostics vocabulary bundle exceeds 16 KiB."
+    throw new Error(
+      "Diagnostics vocabulary bundle exceeds 16 KiB."
     );
-    process.exit(1);
   }
   if (
     /\b(?:createSchema|FeedbackGameDiagnosticsSchema|FeedbackRichTextAstSchema|feedback-encrypted-narrative-envelope)\b/u.test(
       vocabularyBundle
     )
   ) {
-    console.error(
-      "Public package check failed. Diagnostics vocabulary bundle includes schema-builder or narrative code."
+    throw new Error(
+      "Diagnostics vocabulary bundle includes schema-builder or narrative code."
     );
-    process.exit(1);
   }
 
   const rootCjs = require(path.resolve(process.cwd(), "dist/index.cjs"));
@@ -183,10 +267,7 @@ function main() {
       rootValue !== JSON.stringify(diagnosticsCjs[exportName]) ||
       rootValue !== JSON.stringify(vocabularyCjs[exportName])
     ) {
-      console.error(
-        `Public package check failed. CommonJS diagnostics export ${exportName} drifted.`
-      );
-      process.exit(1);
+      throw new Error(`CommonJS diagnostics export ${exportName} drifted.`);
     }
   }
   const cjsProbe = {
@@ -209,10 +290,9 @@ function main() {
     diagnosticsCjs.FeedbackGameDiagnosticsSchema.validate(cjsProbe).valid !==
       true
   ) {
-    console.error(
-      "Public package check failed. CommonJS diagnostics schemas are not behaviorally equivalent."
+    throw new Error(
+      "CommonJS diagnostics schemas are not behaviorally equivalent."
     );
-    process.exit(1);
   }
 
   const forbiddenTarballPathPatterns = [
@@ -238,16 +318,14 @@ function main() {
     },
   ];
 
-  const forbiddenPaths = paths.filter((filePath) =>
+  const forbiddenPaths = normalizedPaths.filter((filePath) =>
     forbiddenTarballPathPatterns.some(({ regex }) => regex.test(filePath))
   );
 
   if (forbiddenPaths.length > 0) {
-    console.error("Public package check failed. Forbidden publish paths found:");
-    for (const filePath of forbiddenPaths) {
-      console.error(`- ${filePath}`);
-    }
-    process.exit(1);
+    throw new Error(
+      `Forbidden publish paths were found (${forbiddenPaths.length}); values were not logged.`
+    );
   }
 
   const forbiddenCodeReferencePatterns = [
@@ -282,16 +360,39 @@ function main() {
   );
 
   if (violations.length > 0) {
-    console.error(
-      "Public package check failed. Forbidden private/product code references found:"
+    const labels = [...new Set(violations.map(({ label }) => label))].sort();
+    throw new Error(
+      `Forbidden private/product code references were found (${violations.length}; ${labels.join(", ")}); path and content values were not logged.`
     );
-    for (const violation of violations) {
-      console.error(`- ${violation.file}:${violation.line} (${violation.label})`);
-    }
-    process.exit(1);
   }
 
   console.log("Public package check passed.");
+}
+
+function runNpmPack(cacheDir) {
+  const npmExecPath = process.env.npm_execpath;
+  const command = npmExecPath ? process.execPath : "npm";
+  const args = npmExecPath
+    ? [npmExecPath, "pack", "--dry-run", "--json", "--ignore-scripts"]
+    : ["pack", "--dry-run", "--json", "--ignore-scripts"];
+  args.push("--cache", cacheDir);
+
+  return execFileSync(command, args, {
+    encoding: "utf8",
+    maxBuffer: 16 * 1024 * 1024,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+}
+
+function summarizePrivateArtifactViolations(violations) {
+  const counts = new Map();
+  for (const violation of violations) {
+    counts.set(violation.ruleId, (counts.get(violation.ruleId) || 0) + 1);
+  }
+  return [...counts]
+    .sort(([left], [right]) => left.localeCompare(right, "en-US"))
+    .map(([ruleId, count]) => `${ruleId}: ${count}`)
+    .join(", ");
 }
 
 function parseNpmPackJson(rawOutput) {
@@ -367,4 +468,9 @@ function collectFiles(root, extensions) {
   return files;
 }
 
-main();
+try {
+  main();
+} catch (error) {
+  console.error(`Public package check failed: ${error.message}`);
+  process.exitCode = 1;
+}

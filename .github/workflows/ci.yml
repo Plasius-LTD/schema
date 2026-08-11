@@ -40,6 +40,12 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
 
+      - name: Verify private artifact policy
+        run: npm run privacy:check
+
+      - name: Test private artifact policy
+        run: npm run test:privacy
+
       - name: Install deps
         run: npm ci --no-fund --no-audit --legacy-peer-deps
 
@@ -54,6 +60,9 @@ jobs:
 
       - name: Build
         run: npm run build --if-present
+
+      - name: Verify public package contents
+        run: npm run pack:check
 
       - name: Test with coverage
         run: |
@@ -132,5 +141,5 @@ jobs:
         with:
           node-version-file: .nvmrc
       - name: Verify public artifact integrity
-        run: node ./scripts/verify-public-artifacts.cjs '--package-dir' '.'
+        run: node ./scripts/verify-private-artifacts.cjs
   # END PLASIUS PUBLIC ARTIFACT INTEGRITY JOB

@@ -38,8 +38,9 @@
   },
   "scripts": {
     "build": "npm run unicode:check && tsup",
-    "test": "npm run unicode:check && vitest run",
+    "test": "npm run unicode:check && vitest run && npm run test:privacy",
     "test:watch": "vitest",
+    "test:privacy": "node --experimental-test-coverage --test-coverage-include=scripts/private-artifact-policy.cjs --test-coverage-lines=80 --test-coverage-functions=80 --test-coverage-branches=60 --test tests/private-artifact-policy.test.cjs",
     "typecheck": "tsc --noEmit",
     "audit:eslint": "eslint . --max-warnings=0",
     "audit:deps": "npm ls --all --omit=optional --omit=peer > /dev/null 2>&1 || true",
@@ -49,8 +50,8 @@
     "prepare": "npm run build",
     "clean": "rimraf dist",
     "test:coverage": "vitest run --coverage",
-    "pack:check": "node scripts/verify-public-package.cjs",
-    "privacy:check": "node scripts/verify-public-artifacts.cjs --package-dir .",
+    "pack:check": "npm run privacy:check && node scripts/verify-public-package.cjs",
+    "privacy:check": "node scripts/verify-private-artifacts.cjs",
     "unicode:check": "node scripts/generate-feedback-unicode-profile.cjs --check",
     "unicode:generate": "node scripts/generate-feedback-unicode-profile.cjs",
     "prepublishOnly": "npm run build && npm run pack:check"
@@ -116,7 +117,7 @@
     }
   ],
   "overrides": {
-    "brace-expansion": "^5.0.8",
+    "brace-expansion": "^5.0.9",
     "esbuild": "^0.28.1",
     "minimatch": "^10.2.1"
   },

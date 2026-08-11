@@ -10,6 +10,7 @@ This document explains how to work on the project, how to propose changes, and w
 > - Write tests, keep coverage steady or improving.
 > - Use Conventional Commits.
 > - Don’t include real PII in code, issues, tests, or logs.
+> - Keep signed CLAs and contributor acceptance records outside source control.
 
 ---
 
@@ -20,6 +21,9 @@ Participation in this project is governed by our **Code of Conduct** (see `CODE_
 ## Licensing & CLA
 
 This project is open source (see `LICENSE`). To protect contributors and users, we require contributors to agree to our **Contributor License Agreement (CLA)** before we can merge PRs (see `legal/CLA.md`). You’ll be prompted automatically by the CLA bot on your first PR.
+
+Signed agreements and acceptance records are retained only in the approved
+access-controlled system. Do not add them to this repository or an npm package.
 
 > If your company has special legal needs, please contact the maintainers before sending large PRs.
 

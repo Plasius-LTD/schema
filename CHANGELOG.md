@@ -24,7 +24,14 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
     does not interpret the relative artifact path as a Git repository spec.
 
 - **Security**
-  - (placeholder)
+  - Added zero-dependency, path-only repository and npm-package gates that
+    prevent CSVs, contributor registries, signed CLA artifacts, and private
+    registry variants from entering source control or release artifacts without
+    inspecting or logging suspected file contents or path values.
+  - Required explicit package `files` metadata and an exact final tarball-path
+    allowlist, with isolated npm cache cleanup on both success and failure.
+  - Updated the development-tool graph to patched `brace-expansion`, `nanoid`,
+    and `postcss` releases after the final release-readiness audit.
 
 ## [1.3.1] - 2026-08-01
 
