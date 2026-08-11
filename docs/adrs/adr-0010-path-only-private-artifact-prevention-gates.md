@@ -24,10 +24,12 @@ The package provides a zero-dependency Node.js policy at two boundaries:
 1. `privacy:check` unions recursive filesystem path metadata with the current
    Git index without following symbolic links or reading file contents. It
    rejects every case variant of `.csv`, contributor/CLA registry variants,
-   signed-CLA storage directories, and paths containing both a privacy marker
-   and a registry marker. Protected CLA/contributor and registry/signature
-   terms are matched across adjacent normalized path segments. Failures reveal
-   only rule IDs and counts.
+   contributor acceptance/signature/submission record categories, signed
+   CLA/contributor agreement storage, and paths containing both a privacy
+   marker and a registry marker. Protected record terms are matched across
+   adjacent normalized path segments while explicit public process, template,
+   schema, validator, and policy artifacts remain allowed. Failures reveal only
+   rule IDs and counts.
 2. `pack:check` requires the exact `dist`, `THIRD_PARTY_NOTICES.md`, and
    `unicode` package-file entries. It applies the same private-path rules to the
    `npm pack --dry-run --json --ignore-scripts` manifest and requires an exact

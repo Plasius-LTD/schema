@@ -25,8 +25,9 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 - **Security**
   - Added zero-dependency, path-only repository and npm-package gates that
-    prevent CSVs, contributor registries, signed CLA artifacts, and private
-    registry variants from entering source control or release artifacts without
+    prevent CSVs, contributor registries, contributor acceptance/signature/
+    submission records, signed CLA/contributor agreements, and private registry
+    variants from entering source control or release artifacts without
     inspecting or logging suspected file contents or path values.
   - Hardened the privacy gate against hierarchical, compatibility-separated,
     case-variant, and trailing-space CLA registry paths by normalizing Unicode

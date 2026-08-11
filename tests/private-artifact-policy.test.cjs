@@ -122,6 +122,36 @@ test("rejects hierarchical and compatibility-spelled signed CLA storage", () => 
   }
 });
 
+test("rejects contributor record and signed agreement aliases", () => {
+  const protectedPaths = [
+    "legal/contributor-acceptances.json",
+    "legal/contributor-signatures.json",
+    "legal/contributor-submission.pdf",
+    "legal/contributor/acceptances/record.json",
+    "legal/contributors/signature/record.pdf",
+    "legal/signed-contributor-agreement.pdf",
+    "legal/signed/contributor/agreements/record.pdf",
+    "legal/contributor-signed-agreement.pdf",
+    "legal/contributor/agreement/signed.pdf",
+    "legal/contributor-agreement-signature.pdf",
+    "legal/contributor-acceptances-2026.json",
+    "legal/contributor-signature-backup.json",
+    "legal/signed-contributor-agreement-backup.pdf",
+    "legal/contributor-acceptance-process.json",
+    "legal/contributor-signature-schema.pdf",
+    "legal/contributor-acceptance-process/SYNTHETIC-RECORD.pdf",
+    "legal/ＣＯＮＴＲＩＢＵＴＯＲ／ＡＣＣＥＰＴＡＮＣＥＳ／record.json",
+    "legal/signed＼contributor＼agreement.pdf",
+    "docs/contributor-acceptance-process/legal/contributor-signatures.json",
+  ];
+
+  for (const candidate of protectedPaths) {
+    const violations = findPrivateArtifactViolations([candidate]);
+    assert.equal(violations.length, 1, candidate);
+    assert.equal(violations[0].ruleId, "contributor-record-storage", candidate);
+  }
+});
+
 test("allows public CLA templates and contributor documentation", () => {
   assert.deepEqual(
     findPrivateArtifactViolations([
@@ -130,8 +160,16 @@ test("allows public CLA templates and contributor documentation", () => {
       "legal/INDIVIDUAL_CLA.md",
       "legal/CORPORATE_CLA.md",
       "docs/cla-signing-process.md",
+      "docs/contributor-acceptance-process.md",
+      "docs/contributor-acceptance-process-v2.md",
+      "docs/signed-contributor-agreement-template.md",
+      "docs/contributor-submission-policy.md",
       "src/mcp-admin-registry.ts",
       "src/cla-signature-schema.ts",
+      "src/contributor-signature-schema.ts",
+      "src/contributor-signature-schema-v2.ts",
+      "src/contributor-submission-validator.ts",
+      "src/contributor-acceptance-format.ts",
     ]),
     []
   );
@@ -463,6 +501,49 @@ test("repository gate rejects hierarchical CLA registries without logging paths"
   assert.equal(result.status, 1);
   assert.match(result.stderr, /contributor-registry: 2/u);
   assert.doesNotMatch(result.stderr, /CLA|REGISTRY|\.json/u);
+});
+
+test("repository gate rejects staged contributor record aliases without logging paths", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "private-artifact-alias-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+
+  const init = spawnSync("git", ["init", "--quiet", root], { encoding: "utf8" });
+  assert.equal(init.status, 0, init.stderr);
+
+  const protectedAliases = [
+    "legal/contributor-acceptances.json",
+    "legal/contributor-signatures.json",
+    "legal/signed-contributor-agreement.pdf",
+  ];
+  const legitimateControls = [
+    "docs/contributor-acceptance-process.md",
+    "docs/signed-contributor-agreement-template.md",
+    "src/contributor-signature-schema.ts",
+  ];
+  for (const artifactPath of [...protectedAliases, ...legitimateControls]) {
+    const absolutePath = path.join(root, artifactPath);
+    fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+    fs.closeSync(fs.openSync(absolutePath, "w"));
+  }
+  const add = spawnSync("git", ["-C", root, "add", "-f", "--all"], {
+    encoding: "utf8",
+  });
+  assert.equal(add.status, 0, add.stderr);
+
+  const verifier = path.resolve(
+    __dirname,
+    "../scripts/verify-private-artifacts.cjs"
+  );
+  const result = spawnSync(process.execPath, [verifier, root], {
+    encoding: "utf8",
+  });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /contributor-record-storage: 3/u);
+  assert.doesNotMatch(
+    result.stderr,
+    /legal\/|acceptances|signatures|agreement|\.json|\.pdf/u
+  );
 });
 
 test("tracked paths remain governed until their deletion is staged", (t) => {

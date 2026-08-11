@@ -11,6 +11,14 @@ const EXCLUDED_DIRECTORY_NAMES = new Set([
   "node_modules",
 ]);
 
+const CONTRIBUTOR_PRIVATE_RECORD_PATTERN =
+  /(?:^|[/ ._-])(?:(?:contributors?[ ._-]*(?:\/[ ._-]*)?(?:acceptances?|signatures?|submissions?))|(?:signed[ ._-]*(?:\/[ ._-]*)?contributors?[ ._-]*(?:\/[ ._-]*)?(?:agreements?|clas?))|(?:contributors?[ ._-]*(?:\/[ ._-]*)?signed[ ._-]*(?:\/[ ._-]*)?(?:agreements?|clas?))|(?:contributors?[ ._-]*(?:\/[ ._-]*)?(?:agreements?|clas?)[ ._-]*(?:\/[ ._-]*)?(?:signed|signatures?)))(?=$|[/ ._-])/giu;
+
+const PUBLIC_CONTRIBUTOR_DOCUMENT_QUALIFIER_PATTERNS = Object.freeze([
+  /^[ ._-]+(?:process|template|policy|guides?|guidance|documentation|docs?|instructions?|examples?)(?:[ ._-]+v?[0-9]+(?:[ ._-][0-9]+)*)?\.(?:md|mdx|rst|adoc|txt|pdf)$/iu,
+  /^[ ._-]+(?:schema|validator|formats?|spec(?:ification)?s?)(?:[ ._-]+v?[0-9]+(?:[ ._-][0-9]+)*)?\.(?:[cm]?[jt]sx?|d\.[cm]?[jt]s|mdx?|json|ya?ml)$/iu,
+]);
+
 const PRIVATE_ARTIFACT_RULES = Object.freeze([
   Object.freeze({
     id: "contributor-registry",
@@ -18,6 +26,12 @@ const PRIVATE_ARTIFACT_RULES = Object.freeze([
       "Contributor and CLA acceptance registries must remain in approved private systems.",
     pattern:
       /(?:^|\/)(?:cla|contributors?)[ ._-]*(?:\/[ ._-]*)?registry[ ._-]*(?:\.[^/]*)?(?:\/|$)/iu,
+  }),
+  Object.freeze({
+    id: "contributor-record-storage",
+    description:
+      "Signed contributor agreements and contributor acceptance, signature, or submission records must remain in approved private systems.",
+    matches: matchesContributorRecordStorage,
   }),
   Object.freeze({
     id: "signed-cla-storage",
@@ -46,6 +60,34 @@ const PRIVATE_ARTIFACT_RULES = Object.freeze([
 ]);
 
 const BROAD_PACKAGE_FILES_ENTRIES = new Set([".", "*", "**/*", "legal"]);
+
+/**
+ * Classify contributor record categories without treating explicit public
+ * process, template, schema, validator, or policy artifacts as private data.
+ * Category directories fail closed regardless of their child filename.
+ *
+ * @param {string} artifactPath
+ * @returns {boolean}
+ */
+function matchesContributorRecordStorage(artifactPath) {
+  for (const match of artifactPath.matchAll(CONTRIBUTOR_PRIVATE_RECORD_PATTERN)) {
+    const phraseEnd = match.index + match[0].length;
+    const nextSeparator = artifactPath.indexOf("/", phraseEnd);
+    const componentSuffix = artifactPath.slice(
+      phraseEnd,
+      nextSeparator === -1 ? artifactPath.length : nextSeparator
+    );
+    const isPublicDocumentation =
+      PUBLIC_CONTRIBUTOR_DOCUMENT_QUALIFIER_PATTERNS.some((pattern) =>
+        pattern.test(componentSuffix)
+      );
+    if (!isPublicDocumentation) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 /**
  * Normalize a repository or package path without opening the referenced file.

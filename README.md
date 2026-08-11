@@ -60,13 +60,16 @@ npm run pack:check
 ```
 
 `privacy:check` checks both filesystem metadata and the proposed Git index. It
-rejects CSV files, contributor/CLA registry variants, signed-CLA storage
-directories, and paths that combine privacy and registry markers. Unicode
-compatibility normalization occurs before separator folding so hierarchical,
-case-variant, and compatibility-separated protected paths cannot evade the
-same path-only classification. An unstaged deletion remains a failure until
-the deletion is staged. Invalid Git worktree metadata, symbolic links, and
-non-regular entries fail closed, and failures report only rule IDs and counts.
+rejects CSV files, contributor/CLA registry variants, contributor acceptance,
+signature, and submission record categories, signed CLA/contributor agreement
+storage, and paths that combine privacy and registry markers. Explicit public
+process, template, schema, validator, and policy artifacts remain allowed.
+Unicode compatibility normalization occurs before separator folding so
+hierarchical, case-variant, and compatibility-separated protected paths cannot
+evade the same path-only classification. An unstaged deletion remains a
+failure until the deletion is staged. Invalid Git worktree metadata, symbolic
+links, and non-regular entries fail closed, and failures report only rule IDs
+and counts.
 
 `pack:check` requires the exact `dist`, `THIRD_PARTY_NOTICES.md`, and `unicode`
 `package.json.files` entries, then retains prefix-stripped raw member identities
