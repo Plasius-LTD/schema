@@ -16,6 +16,20 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - (placeholder)
 
 - **Fixed**
+  - (placeholder)
+
+- **Security**
+  - (placeholder)
+
+## [1.4.0] - 2026-08-13
+
+- **Added**
+  - (placeholder)
+
+- **Changed**
+  - (placeholder)
+
+- **Fixed**
   - Corrected the release-preparation JavaScript terminator so stable package
     metadata can be handed to the exact-main publication phase.
   - Made tarball validation consume the complete archive listing under
@@ -509,7 +523,7 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 ---
 
-[Unreleased]: https://github.com/Plasius-LTD/schema/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/Plasius-LTD/schema/compare/v1.4.0...HEAD
 [1.0.0]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.0
 [1.0.13]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.13
 [1.0.17]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.17
@@ -547,3 +561,4 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 [1.2.18]: https://github.com/Plasius-LTD/schema/releases/tag/v1.2.18
 [1.3.0]: https://github.com/Plasius-LTD/schema/releases/tag/v1.3.0
 [1.3.1]: https://github.com/Plasius-LTD/schema/releases/tag/v1.3.1
+[1.4.0]: https://github.com/Plasius-LTD/schema/releases/tag/v1.4.0
