@@ -9,3 +9,4 @@
 - [ADR-0007: Pinned Unicode Feedback Profile](./adr-0007-pinned-unicode-feedback-profile.md)
 - [ADR-0008: Exact-main OIDC package publishing](./adr-0008-exact-main-oidc-package-publishing.md)
 - [ADR-0009: Separate display-name and personal-name validation](./adr-0009-separate-display-and-personal-name-validation.md)
+- [ADR-0010: Path-only private-artifact prevention gates](./adr-0010-path-only-private-artifact-prevention-gates.md)

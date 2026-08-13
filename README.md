@@ -45,6 +45,46 @@ uses `dist-cjs/*.js` with `type: module`, it must generate
 `dist-cjs/package.json` with `{ "type": "commonjs" }` and validate this in
 `pack:check` before publish.
 
+### Private-artifact policy
+
+Signed contributor agreements and contributor acceptance records belong only
+in the approved access-controlled system outside source control. The
+zero-dependency repository gate inspects path metadata without opening,
+hashing, copying, or logging suspected private artifacts:
+
+```bash
+npm run privacy:check
+npm run test:privacy
+npm run build
+npm run pack:check
+```
+
+`privacy:check` checks both filesystem metadata and the proposed Git index. It
+rejects CSV files, contributor/CLA registry variants, contributor acceptance,
+signature, and submission record categories, signed CLA/contributor agreement
+storage, and paths that combine privacy and registry markers. Explicit public
+process, template, schema, validator, and policy files remain allowed only as
+terminal path components; matching private-record categories used as
+directories fail closed regardless of their descendants.
+Unicode compatibility normalization occurs before separator folding so
+hierarchical, case-variant, and compatibility-separated protected paths cannot
+evade the same path-only classification. An unstaged deletion remains a
+failure until the deletion is staged. Invalid Git worktree metadata, symbolic
+links, and non-regular entries fail closed, and failures report only rule IDs
+and counts.
+
+`pack:check` requires the exact `dist`, `THIRD_PARTY_NOTICES.md`, and `unicode`
+`package.json.files` entries, then retains prefix-stripped raw member identities
+and cardinality while comparing the canonical `npm pack --dry-run` manifest
+with the package's exact public allowlist. Duplicate members, raw aliases, and
+many-to-one normalization collisions fail without logging member values. The
+same zero-dependency inventory policy runs over the digest-verified sealed
+tarball immediately before publication. The isolated npm cache is removed
+whether the check passes or fails. CI runs the repository gate before
+dependency installation; release preparation and publication repeat the gate.
+These path controls are defense in depth and do not replace secret scanning,
+access controls, or incident response.
+
 ---
 
 ## Player-system event contracts
@@ -151,6 +191,12 @@ build-time dependency `@unicode/unicode-15.1.0@1.6.17`; run
 `npm run unicode:check` to prove the checked-in artifact is current. See
 [ADR-0007](./docs/adrs/adr-0007-pinned-unicode-feedback-profile.md) and
 [third-party notices](./THIRD_PARTY_NOTICES.md).
+
+The three typed feedback subpaths publish both modern `exports.types` entries
+and exact `typesVersions` fallbacks. This keeps their declarations resolvable
+for consumers that still compile CommonJS with classic TypeScript
+`moduleResolution: "node"`, without opening a wildcard route for unknown
+subpaths.
 
 Validated reusable fragments retain exact `type` and `version` metadata when
 embedded in parent contracts. This makes the output of the encrypted-envelope,
@@ -485,8 +531,9 @@ prerelease identity, artifact digests, or npm registry integrity differ.
 The read-only validation job installs dependencies, validates the package,
 builds an SBOM, and seals an immutable tarball. The `production` job runs no
 package lifecycle or dependency code; it verifies the exact artifact hand-off
-and publishes that tarball through npm OIDC with provenance. No npm write token
-or fallback is configured. The trusted publisher must be bound to
-`Plasius-LTD/schema`, `cd.yml`, `production`, and `npm publish`. Rollback is to
-disable `cd.yml`; never restore token-based publication.
+and rechecks the collision-free exact raw-member inventory before publishing
+that tarball through npm OIDC with provenance. No npm write token or fallback
+is configured. The trusted publisher must be bound to `Plasius-LTD/schema`,
+`cd.yml`, `production`, and `npm publish`. Rollback is to disable `cd.yml`;
+never restore token-based publication.
 <!-- END PLASIUS RELEASE INTEGRITY -->

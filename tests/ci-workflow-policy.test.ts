@@ -8,6 +8,9 @@ const read = (path: string): string =>
 const ciWorkflow = read(".github/workflows/ci.yml");
 const cdWorkflow = read(".github/workflows/cd.yml");
 const releasePrepareWorkflow = read(".github/workflows/release-prepare.yml");
+const feedbackReleaseReadiness = read(
+  "docs/design/feedback-contracts-1.4.0-release.md",
+);
 const npmConfig = read(".npmrc");
 
 describe("release workflow trust boundaries", () => {
@@ -112,6 +115,21 @@ describe("release workflow trust boundaries", () => {
     expect(cdWorkflow).not.toContain(`npm publish "\${TARBALL}"`);
   });
 
+  it("rechecks the sealed tarball with the shared exact inventory policy", () => {
+    const digestVerification = cdWorkflow.indexOf(
+      'TARBALL_SHA256="$(sha256sum "${TARBALL}"',
+    );
+    const inventoryVerification = cdWorkflow.indexOf(
+      'tar -tzf "${TARBALL}" | node scripts/verify-public-package.cjs --inventory-stdin',
+    );
+    const publish = cdWorkflow.indexOf('npm publish "./${TARBALL}"');
+
+    expect(digestVerification).toBeGreaterThan(-1);
+    expect(inventoryVerification).toBeGreaterThan(digestVerification);
+    expect(publish).toBeGreaterThan(inventoryVerification);
+    expect(cdWorkflow).not.toContain('const prohibited = "legal/cla-registry.csv"');
+  });
+
   it("lands release metadata through a unique non-force-pushed pull request", () => {
     expect(releasePrepareWorkflow).toMatch(
       /- name: Checkout main[\s\S]*?persist-credentials: false/u,
@@ -124,5 +142,48 @@ describe("release workflow trust boundaries", () => {
     );
     expect(releasePrepareWorkflow).not.toContain("--force-with-lease");
     expect(releasePrepareWorkflow).not.toContain("secrets: inherit");
+  });
+
+  it("fails closed on private paths before dependency or release metadata mutation", () => {
+    const ciPrivacy = ciWorkflow.indexOf("run: npm run privacy:check");
+    const ciInstall = ciWorkflow.indexOf(
+      "run: npm ci --no-fund --no-audit --legacy-peer-deps",
+    );
+    const ciPackage = ciWorkflow.indexOf("run: npm run pack:check");
+    expect(ciPrivacy).toBeGreaterThan(-1);
+    expect(ciInstall).toBeGreaterThan(ciPrivacy);
+    expect(ciPackage).toBeGreaterThan(ciInstall);
+
+    const prepareCheckout = releasePrepareWorkflow.indexOf(
+      'git checkout -B "${BASE_BRANCH}" "origin/${BASE_BRANCH}"',
+    );
+    const preparePrivacy = releasePrepareWorkflow.indexOf(
+      'npm --prefix "${PACKAGE_DIRECTORY}" run privacy:check',
+    );
+    const prepareVersion = releasePrepareWorkflow.indexOf(
+      'npm version "${TARGET_VER}"',
+    );
+    expect(prepareCheckout).toBeGreaterThan(-1);
+    expect(preparePrivacy).toBeGreaterThan(prepareCheckout);
+    expect(prepareVersion).toBeGreaterThan(preparePrivacy);
+
+    const validationJob = cdWorkflow.slice(
+      cdWorkflow.indexOf("\n  validate_and_pack:"),
+      cdWorkflow.indexOf("\n  publish:"),
+    );
+    const publicationPrivacy = validationJob.indexOf("npm run privacy:check");
+    const publicationInstall = validationJob.indexOf("npm ci");
+    expect(publicationPrivacy).toBeGreaterThan(-1);
+    expect(publicationInstall).toBeGreaterThan(publicationPrivacy);
+  });
+
+  it("records a pipeline-owned minor bump from 1.3.1 to 1.4.0", () => {
+    expect(feedbackReleaseReadiness).toContain(
+      "approved stable target is `@plasius/schema@1.4.0`",
+    );
+    expect(feedbackReleaseReadiness).toContain("- `bump`: `minor`");
+    expect(feedbackReleaseReadiness).toContain(
+      "Release metadata must not be edited manually.",
+    );
   });
 });

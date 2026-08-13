@@ -149,6 +149,8 @@ jobs:
             exit 1
           fi
 
+          npm --prefix "${PACKAGE_DIRECTORY}" run privacy:check
+
           NAME=$(PACKAGE_JSON_PATH="${PACKAGE_JSON}" node -p "const path = require('node:path'); const pkg = require(path.resolve(process.env.PACKAGE_JSON_PATH)); pkg.name || ''")
           CURRENT_VER=$(PACKAGE_JSON_PATH="${PACKAGE_JSON}" node -p "const path = require('node:path'); const pkg = require(path.resolve(process.env.PACKAGE_JSON_PATH)); pkg.version || ''")
           PRIVATE_PACKAGE=$(PACKAGE_JSON_PATH="${PACKAGE_JSON}" node -p "const path = require('node:path'); const pkg = require(path.resolve(process.env.PACKAGE_JSON_PATH)); String(Boolean(pkg.private))")

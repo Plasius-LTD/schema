@@ -22,9 +22,27 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
     `pipefail`, avoiding a false missing-build failure caused by `grep -q`.
   - Passed the sealed package to npm as an explicit local tarball path so npm
     does not interpret the relative artifact path as a Git repository spec.
+  - Added exact `typesVersions` routes for every typed feedback subpath so
+    classic CommonJS TypeScript consumers resolve the same declarations as
+    NodeNext consumers.
 
 - **Security**
-  - (placeholder)
+  - Added zero-dependency, path-only repository and npm-package gates that
+    prevent CSVs, contributor registries, contributor acceptance/signature/
+    submission records, signed CLA/contributor agreements, and private registry
+    variants from entering source control or release artifacts without
+    inspecting or logging suspected file contents or path values.
+  - Hardened the privacy gate against hierarchical, compatibility-separated,
+    case-variant, and trailing-space CLA registry paths by normalizing Unicode
+    before structural separators and matching protected adjacent segments.
+  - Required public contributor-document qualifiers to be terminal files so a
+    private-record category cannot be disguised as a documentation directory.
+  - Required explicit package `files` metadata and an exact final tarball-path
+    allowlist, with collision-free raw member identity/cardinality enforcement,
+    a repeated check over the sealed publication tarball, and isolated npm cache
+    cleanup on both success and failure.
+  - Updated the development-tool graph to patched `brace-expansion`, `nanoid`,
+    and `postcss` releases after the final release-readiness audit.
 
 ## [1.3.1] - 2026-08-01
 
