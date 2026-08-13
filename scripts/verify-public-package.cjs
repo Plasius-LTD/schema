@@ -243,6 +243,23 @@ function verifyPackageContents({ packageJson, paths }) {
       throw new Error(`Export ${exportPath} is incorrect.`);
     }
   }
+  const expectedTypesVersions = {
+    "*": {
+      "feedback-diagnostics": ["dist/feedback-diagnostics.d.ts"],
+      "feedback-diagnostics-vocabulary": [
+        "dist/feedback-diagnostics-vocabulary.d.ts",
+      ],
+      "feedback-unicode-profile": [
+        "dist/feedback-unicode-profile.d.ts",
+      ],
+    },
+  };
+  if (
+    JSON.stringify(packageJson.typesVersions) !==
+    JSON.stringify(expectedTypesVersions)
+  ) {
+    throw new Error("Classic TypeScript subpath declarations are incorrect.");
+  }
 
   const vocabularyBundle = fs.readFileSync(
     path.resolve(

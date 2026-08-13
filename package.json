@@ -36,6 +36,19 @@
     "./unicode/feedback-unicode-15.1.0-unassigned.json": "./unicode/feedback-unicode-15.1.0-unassigned.json",
     "./package.json": "./package.json"
   },
+  "typesVersions": {
+    "*": {
+      "feedback-diagnostics": [
+        "dist/feedback-diagnostics.d.ts"
+      ],
+      "feedback-diagnostics-vocabulary": [
+        "dist/feedback-diagnostics-vocabulary.d.ts"
+      ],
+      "feedback-unicode-profile": [
+        "dist/feedback-unicode-profile.d.ts"
+      ]
+    }
+  },
   "scripts": {
     "build": "npm run unicode:check && tsup",
     "test": "npm run unicode:check && vitest run && npm run test:privacy",

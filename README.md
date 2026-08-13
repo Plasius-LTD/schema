@@ -192,6 +192,12 @@ build-time dependency `@unicode/unicode-15.1.0@1.6.17`; run
 [ADR-0007](./docs/adrs/adr-0007-pinned-unicode-feedback-profile.md) and
 [third-party notices](./THIRD_PARTY_NOTICES.md).
 
+The three typed feedback subpaths publish both modern `exports.types` entries
+and exact `typesVersions` fallbacks. This keeps their declarations resolvable
+for consumers that still compile CommonJS with classic TypeScript
+`moduleResolution: "node"`, without opening a wildcard route for unknown
+subpaths.
+
 Validated reusable fragments retain exact `type` and `version` metadata when
 embedded in parent contracts. This makes the output of the encrypted-envelope,
 derived-analysis, and game-diagnostics schemas directly composable into their

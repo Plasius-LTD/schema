@@ -46,6 +46,8 @@ Before dispatch, all of the following must be true:
 - the digest-verified sealed tarball passes the same raw-member identity,
   cardinality, normalization-collision, and exact-inventory policy immediately
   before publication;
+- installed-package probes resolve every typed feedback subpath with ESM,
+  CommonJS, NodeNext TypeScript, and classic CommonJS TypeScript resolution;
 - CI succeeds for the exact protected `main` commit;
 - the previously exposed inherited npm credential is revoked or rotated;
 - npm organization owners satisfy enforced 2FA;

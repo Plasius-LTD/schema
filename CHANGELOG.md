@@ -22,6 +22,9 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
     `pipefail`, avoiding a false missing-build failure caused by `grep -q`.
   - Passed the sealed package to npm as an explicit local tarball path so npm
     does not interpret the relative artifact path as a Git repository spec.
+  - Added exact `typesVersions` routes for every typed feedback subpath so
+    classic CommonJS TypeScript consumers resolve the same declarations as
+    NodeNext consumers.
 
 - **Security**
   - Added zero-dependency, path-only repository and npm-package gates that
