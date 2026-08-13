@@ -32,6 +32,8 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - Hardened the privacy gate against hierarchical, compatibility-separated,
     case-variant, and trailing-space CLA registry paths by normalizing Unicode
     before structural separators and matching protected adjacent segments.
+  - Required public contributor-document qualifiers to be terminal files so a
+    private-record category cannot be disguised as a documentation directory.
   - Required explicit package `files` metadata and an exact final tarball-path
     allowlist, with collision-free raw member identity/cardinality enforcement,
     a repeated check over the sealed publication tarball, and isolated npm cache

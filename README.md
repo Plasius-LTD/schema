@@ -63,7 +63,9 @@ npm run pack:check
 rejects CSV files, contributor/CLA registry variants, contributor acceptance,
 signature, and submission record categories, signed CLA/contributor agreement
 storage, and paths that combine privacy and registry markers. Explicit public
-process, template, schema, validator, and policy artifacts remain allowed.
+process, template, schema, validator, and policy files remain allowed only as
+terminal path components; matching private-record categories used as
+directories fail closed regardless of their descendants.
 Unicode compatibility normalization occurs before separator folding so
 hierarchical, case-variant, and compatibility-separated protected paths cannot
 evade the same path-only classification. An unstaged deletion remains a

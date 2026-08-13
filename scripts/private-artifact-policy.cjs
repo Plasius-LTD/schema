@@ -78,6 +78,7 @@ function matchesContributorRecordStorage(artifactPath) {
       nextSeparator === -1 ? artifactPath.length : nextSeparator
     );
     const isPublicDocumentation =
+      nextSeparator === -1 &&
       PUBLIC_CONTRIBUTOR_DOCUMENT_QUALIFIER_PATTERNS.some((pattern) =>
         pattern.test(componentSuffix)
       );

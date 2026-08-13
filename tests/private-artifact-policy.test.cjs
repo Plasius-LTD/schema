@@ -175,6 +175,25 @@ test("allows public CLA templates and contributor documentation", () => {
   );
 });
 
+test("rejects public-document qualifiers used as private-record directories", () => {
+  const protectedPaths = [
+    "docs/contributor-acceptance-process.md/SYNTHETIC-RECORD.pdf",
+    "docs/contributor-acceptance-process-v2.md/SYNTHETIC-RECORD.pdf",
+    "docs/signed-contributor-agreement-template.md/SYNTHETIC-RECORD.pdf",
+    "docs/contributor-submission-policy.md/SYNTHETIC-RECORD.pdf",
+    "src/contributor-signature-schema.ts/SYNTHETIC-RECORD.pdf",
+    "src/contributor-signature-schema-v2.ts/SYNTHETIC-RECORD.pdf",
+    "src/contributor-submission-validator.ts/SYNTHETIC-RECORD.pdf",
+    "src/contributor-acceptance-format.ts/SYNTHETIC-RECORD.pdf",
+  ];
+
+  for (const candidate of protectedPaths) {
+    const violations = findPrivateArtifactViolations([candidate]);
+    assert.equal(violations.length, 1, candidate);
+    assert.equal(violations[0].ruleId, "contributor-record-storage", candidate);
+  }
+});
+
 test("rejects every CSV extension case-insensitively", () => {
   const violations = findPrivateArtifactViolations([
     "reports/public-export.CsV",
@@ -514,6 +533,7 @@ test("repository gate rejects staged contributor record aliases without logging 
     "legal/contributor-acceptances.json",
     "legal/contributor-signatures.json",
     "legal/signed-contributor-agreement.pdf",
+    "evidence/contributor-acceptance-process.md/SYNTHETIC-RECORD.pdf",
   ];
   const legitimateControls = [
     "docs/contributor-acceptance-process.md",
@@ -539,10 +559,10 @@ test("repository gate rejects staged contributor record aliases without logging 
   });
 
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /contributor-record-storage: 3/u);
+  assert.match(result.stderr, /contributor-record-storage: 4/u);
   assert.doesNotMatch(
     result.stderr,
-    /legal\/|acceptances|signatures|agreement|\.json|\.pdf/u
+    /legal\/|acceptances|signatures|agreement|SYNTHETIC|\.json|\.pdf/u
   );
 });
 
