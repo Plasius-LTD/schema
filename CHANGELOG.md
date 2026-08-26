@@ -10,16 +10,22 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 ## [Unreleased]
 
 - **Added**
-  - (placeholder)
+  - Added a closed, identifier-free committed feedback acceptance-evidence
+    contract for evidence-backed report materialisation.
 
 - **Changed**
   - (placeholder)
 
 - **Fixed**
-  - (placeholder)
+  - Made committed feedback acceptance-time validation fail closed for
+    impossible calendar and clock values instead of allowing native date
+    serialization errors to escape schema validation.
 
 - **Security**
-  - (placeholder)
+  - Prevented orphan feedback packets from becoming valid reporting inputs by
+    giving trusted post-commit delivery a durable packet-kind/time proof that
+    cannot carry reporter, control-plane, request, Blob-locator, hash,
+    narrative, ciphertext, or pixel data.
 
 ## [1.4.1] - 2026-08-24
 

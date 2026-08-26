@@ -114,6 +114,7 @@ reporting:
 ```ts
 import {
   FeedbackBugPacketSchema,
+  FeedbackCommittedAcceptanceEvidenceSchema,
   FeedbackPublicSummarySchema,
   FeedbackRichTextAstSchema,
   FeedbackReviewPacketSchema,
@@ -226,6 +227,21 @@ free-standing claims. Feedback context caps remaining bug cooldown at 24
 hours and review suppression at 30 days; acceptance receipts distinguish bugs
 from reviews and accept only the five-step bug ladder or exact 30-day review
 period.
+
+`FeedbackCommittedAcceptanceEvidenceSchema` is a separate, durable proof that
+the control-plane commit for one immutable packet completed. It contains only
+the canonical packet UUID, `bug`/`review` kind, and the packet's canonical
+server-owned UTC acceptance time. Canonical timestamp validation rejects
+impossible calendar or clock values as ordinary closed validation failures; it
+does not expose the rejected value or a native date exception. It cannot
+express a control-state key, reservation, idempotency value, reporter
+pseudonym, request metadata, Blob locator, content hash, narrative, ciphertext,
+or pixels, and its PII audit is empty. Only a trusted delivery worker may
+construct this evidence after an atomic control-plane commit; it is not an
+intake request. Report processors must select packets through this evidence
+rather than by enumerating packet storage, preventing an immutable Blob written
+before a failed commit from entering aggregates. See
+[ADR-0011](./docs/adrs/adr-0011-identifier-free-feedback-acceptance-evidence.md).
 
 All feedback contracts opt in to recursive unknown-field rejection, including
 direct references and arrays of references. Unshaped references admit only

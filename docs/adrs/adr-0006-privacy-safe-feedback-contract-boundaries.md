@@ -52,6 +52,10 @@ boundaries:
 3. Drafts, accepted packets, game diagnostics, materialized reports,
    checkpoints, reconstruction manifests, and public summaries contain only
    closed structured fields.
+4. Durable committed-acceptance evidence contains only packet UUID, packet
+   kind, and the immutable packet's canonical server acceptance time. It is
+   delivered after the isolated control-plane commit and is the only valid
+   packet-selection input for report materialisation.
 
 Renderer/browser consumers use the focused
 `@plasius/schema/feedback-diagnostics-vocabulary` entrypoint for the canonical
@@ -149,4 +153,5 @@ private, no-retention privacy scanner before accepting derived analysis.
 
 - [ADR-0004: Field Exposure Metadata and Public Serialization](./adr-0004-field-exposure-and-public-serialization.md)
 - [ADR-0007: Pinned Unicode Feedback Profile](./adr-0007-pinned-unicode-feedback-profile.md)
+- [ADR-0011: Identifier-Free Feedback Acceptance Evidence](./adr-0011-identifier-free-feedback-acceptance-evidence.md)
 - [Feedback contract design](../design/feedback-contracts.md)

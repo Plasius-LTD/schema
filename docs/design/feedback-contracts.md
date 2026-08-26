@@ -8,8 +8,9 @@ reports, and the public honesty snapshot. It intentionally does not implement
 authentication, capability evaluation, encryption, storage, cooldowns, timer
 execution, or classification.
 
-Tracked delivery: `Plasius-LTD/schema#32`, under the privacy-safe feedback
-Epic. Consuming features remain default-off behind their named remote flags,
+Tracked delivery: `Plasius-LTD/schema#32` and
+`Plasius-LTD/schema#52`, under the privacy-safe feedback Epic. Consuming
+features remain default-off behind their named remote flags,
 including `feedback.bug-report.enabled`, `feedback.review.enabled`,
 `feedback.transient-analysis.enabled`, `feedback.reporting.enabled`,
 `feedback.public-honesty.enabled`, and
@@ -23,6 +24,7 @@ including `feedback.bug-report.enabled`, `feedback.review.enabled`,
 | Scanner response | analysis receipt | Ephemeral one-use receipt |
 | Draft storage | structured draft packet | Structured selections and derived projection only |
 | Accepted storage | bug/review packet, optional game diagnostics | Identifier-free structured facts |
+| Committed-acceptance evidence | packet UUID, kind, server acceptance time | Identifier-free proof that control commit completed |
 | Scheduled processing | hourly/daily reports, checkpoints, manifests | Identifier-free aggregates and safe operational state |
 | Public read model | public summary | Thresholded 90-day and weekly satisfaction facts |
 | Admin reconstruction | reconstruction manifest | Safe diagnostics and curated asset identifiers, never user pixels |
@@ -97,6 +99,17 @@ scanner activity.
   and never projected into content JSON.
 - `FeedbackBugPacketSchema` and `FeedbackReviewPacketSchema` are immutable
   storage projections with no reporter correlation.
+- `FeedbackCommittedAcceptanceEvidenceSchema` is the only durable selector
+  input that proves a packet completed its isolated control-plane commit. It
+  contains a canonical lowercase UUIDv4 packet ID, `bug`/`review` kind, and
+  millisecond-precision UTC `acceptedAt` copied from the already-validated
+  immutable packet by a trusted delivery worker. Impossible calendar and clock
+  values produce a closed invalid result without a native date exception or
+  rejected-value reflection. The evidence is never
+  accepted from an intake caller and cannot express the pseudonymous control
+  key, reservation, idempotency data, packet locator/hash, or request/content
+  metadata. A packet present in Blob storage without this evidence is an
+  orphan and must not enter reports.
 - `FeedbackGameDiagnosticsSchema` contains coarse renderer, backend, viewport,
   frame-rate, and frame-time buckets plus closed renderer-owned provenance,
   feature, counter, and error identifiers. It requires explicit consent,
@@ -158,6 +171,14 @@ Validation errors identify only a schema-owned container path. They do not
 echo the unknown key or value. This prevents adversarial property names from
 entering error logs.
 
+Committed-acceptance evidence has an empty PII audit. Its closed shape also
+rejects control state/reservation IDs, reporter and account values,
+idempotency/attempt identifiers, request/network/session metadata, narrative,
+ciphertext, pixels, Blob locators, and content hashes. The schema proves only
+the shape of evidence; the consuming system must create it through an atomic
+post-commit delivery protocol and use separate least-privilege identities for
+control delivery and report reads.
+
 Strict validation first applies a non-recursive whole-input node and depth
 budget before cloning. The budget covers malformed objects or arrays even when
 they are supplied under a scalar field, so a type-invalid request cannot evade
@@ -184,6 +205,11 @@ existing serialization behaviour.
 This pre-release request alignment changes only ingress schemas and exported
 transient request types. The immutable bug/review packet schemas and their
 identifier-free storage wire shapes are unchanged.
+
+The committed-acceptance evidence contract is additive. Existing packets and
+reports remain wire-compatible, but report processors must fail closed until
+their deployment can prove every selected packet through the new evidence
+boundary. There is no legacy fallback that scans all packet Blobs.
 
 The package evaluates no capability or feature flag. Consumer services must
 compose the relevant feature flag with projected capability decisions and
@@ -215,6 +241,8 @@ The requirement-derived suite covers:
 - non-reflective unknown-field errors;
 - malformed/oversized encrypted envelopes and narrative ASTs;
 - all privacy-forbidden packet key classes;
+- canonical committed-acceptance evidence, empty PII audit, both packet kinds,
+  storage round trips, exact identity, and privacy-forbidden evidence keys;
 - scanner structured-only invariants and receipt/projection separation;
 - purpose-discriminated bug/review analysis and pre-decryption surface
   binding, including explicit-null rejection;

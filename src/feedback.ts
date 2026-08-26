@@ -469,6 +469,20 @@ export interface FeedbackReviewPacket {
   analysis?: FeedbackDerivedAnalysis;
 }
 
+/**
+ * Durable identifier-free proof that feedback intake committed a packet.
+ *
+ * This projection is emitted only by the trusted acceptance-evidence worker;
+ * the public intake contract never accepts it from a caller.
+ */
+export interface FeedbackCommittedAcceptanceEvidence {
+  type: "feedback-committed-acceptance-evidence";
+  version: typeof FEEDBACK_CONTRACT_VERSION;
+  packetId: string;
+  packetKind: "bug" | "review";
+  acceptedAt: string;
+}
+
 /** Count bucket used by materialized feedback reports. */
 export interface FeedbackCountBucket {
   id: string;
@@ -539,6 +553,8 @@ const REVIEW_DAY_WINDOW_PATTERN =
   /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/;
 const RECONCILIATION_WINDOW_PATTERN =
   /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):(?:[0-5]\d)$/;
+const CANONICAL_SERVER_UTC_PATTERN =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 const strictOptions = {
   version: FEEDBACK_CONTRACT_VERSION,
@@ -552,6 +568,28 @@ const uuidField = () =>
     .string()
     .validator((value) => OPAQUE_UUID_V4_PATTERN.test(value))
     .description("Opaque UUID generated for the feedback workflow");
+
+const isCanonicalServerUtc = (value: unknown): value is string => {
+  if (
+    typeof value !== "string" ||
+    !CANONICAL_SERVER_UTC_PATTERN.test(value)
+  ) {
+    return false;
+  }
+
+  const timestamp = Date.parse(value);
+  return (
+    Number.isFinite(timestamp) && new Date(timestamp).toISOString() === value
+  );
+};
+
+const canonicalServerUtcField = () =>
+  field
+    .dateTimeISO()
+    .validator(isCanonicalServerUtc)
+    .description(
+      "Canonical millisecond-precision UTC timestamp supplied by the trusted server",
+    );
 
 const draftIdField = () =>
   field
@@ -1718,6 +1756,21 @@ export const FeedbackReviewPacketSchema = createSchema(
       value.analysis === undefined ||
       isAnalysisProjectionConsistent(value.analysis),
   },
+);
+
+/**
+ * Immutable proof that a structured packet completed the control-plane commit.
+ * The schema deliberately excludes correlation, request, locator, and content
+ * metadata so report materializers can retain it without retaining an actor.
+ */
+export const FeedbackCommittedAcceptanceEvidenceSchema = createSchema(
+  {
+    packetId: uuidField(),
+    packetKind: field.string().enum(["bug", "review"] as const),
+    acceptedAt: canonicalServerUtcField(),
+  },
+  "feedback-committed-acceptance-evidence",
+  strictOptions,
 );
 
 /** Safe facts used to reconstruct a representative in-game view server-side. */

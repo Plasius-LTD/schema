@@ -10,3 +10,4 @@
 - [ADR-0008: Exact-main OIDC package publishing](./adr-0008-exact-main-oidc-package-publishing.md)
 - [ADR-0009: Separate display-name and personal-name validation](./adr-0009-separate-display-and-personal-name-validation.md)
 - [ADR-0010: Path-only private-artifact prevention gates](./adr-0010-path-only-private-artifact-prevention-gates.md)
+- [ADR-0011: Identifier-free feedback acceptance evidence](./adr-0011-identifier-free-feedback-acceptance-evidence.md)
