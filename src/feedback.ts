@@ -553,6 +553,8 @@ const REVIEW_DAY_WINDOW_PATTERN =
   /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/;
 const RECONCILIATION_WINDOW_PATTERN =
   /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):(?:[0-5]\d)$/;
+const CANONICAL_SERVER_UTC_PATTERN =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 const strictOptions = {
   version: FEEDBACK_CONTRACT_VERSION,
@@ -567,14 +569,24 @@ const uuidField = () =>
     .validator((value) => OPAQUE_UUID_V4_PATTERN.test(value))
     .description("Opaque UUID generated for the feedback workflow");
 
+const isCanonicalServerUtc = (value: unknown): value is string => {
+  if (
+    typeof value !== "string" ||
+    !CANONICAL_SERVER_UTC_PATTERN.test(value)
+  ) {
+    return false;
+  }
+
+  const timestamp = Date.parse(value);
+  return (
+    Number.isFinite(timestamp) && new Date(timestamp).toISOString() === value
+  );
+};
+
 const canonicalServerUtcField = () =>
   field
     .dateTimeISO()
-    .validator(
-      (value) =>
-        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) &&
-        new Date(value).toISOString() === value,
-    )
+    .validator(isCanonicalServerUtc)
     .description(
       "Canonical millisecond-precision UTC timestamp supplied by the trusted server",
     );

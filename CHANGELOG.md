@@ -17,7 +17,9 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - (placeholder)
 
 - **Fixed**
-  - (placeholder)
+  - Made committed feedback acceptance-time validation fail closed for
+    impossible calendar and clock values instead of allowing native date
+    serialization errors to escape schema validation.
 
 - **Security**
   - Prevented orphan feedback packets from becoming valid reporting inputs by

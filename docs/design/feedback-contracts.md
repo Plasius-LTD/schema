@@ -103,7 +103,9 @@ scanner activity.
   input that proves a packet completed its isolated control-plane commit. It
   contains a canonical lowercase UUIDv4 packet ID, `bug`/`review` kind, and
   millisecond-precision UTC `acceptedAt` copied from the already-validated
-  immutable packet by a trusted delivery worker. The evidence is never
+  immutable packet by a trusted delivery worker. Impossible calendar and clock
+  values produce a closed invalid result without a native date exception or
+  rejected-value reflection. The evidence is never
   accepted from an intake caller and cannot express the pseudonymous control
   key, reservation, idempotency data, packet locator/hash, or request/content
   metadata. A packet present in Blob storage without this evidence is an

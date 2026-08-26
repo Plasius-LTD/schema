@@ -113,6 +113,47 @@ describe("committed feedback acceptance evidence", () => {
     expect(valid).toBe(acceptedAt === "2026-08-26T04:30:00.001Z");
   });
 
+  it.each([
+    "2026-00-26T04:30:00.000Z",
+    "2026-13-26T04:30:00.000Z",
+    "2026-01-00T04:30:00.000Z",
+    "2026-02-29T04:30:00.000Z",
+    "2026-04-31T04:30:00.000Z",
+    "2026-08-26T24:00:00.000Z",
+    "2026-08-26T23:60:00.000Z",
+    "2026-08-26T23:59:60.000Z",
+  ])(
+    "rejects impossible canonical-looking acceptance time without throwing %s",
+    (acceptedAt) => {
+      let result:
+        | ReturnType<
+            typeof FeedbackCommittedAcceptanceEvidenceSchema.validate
+          >
+        | undefined;
+
+      expect(() => {
+        result = FeedbackCommittedAcceptanceEvidenceSchema.validate({
+          ...evidence,
+          acceptedAt,
+        });
+      }).not.toThrow();
+      expect(result?.valid).toBe(false);
+      expect(result?.errors?.join(" ")).not.toContain(acceptedAt);
+    },
+  );
+
+  it.each([
+    "2024-02-29T00:00:00.000Z",
+    "2026-12-31T23:59:59.999Z",
+  ])("accepts real canonical boundary time %s", (acceptedAt) => {
+    expect(
+      FeedbackCommittedAcceptanceEvidenceSchema.validate({
+        ...evidence,
+        acceptedAt,
+      }).valid,
+    ).toBe(true);
+  });
+
   it("rejects unknown packet kinds and caller-supplied identity metadata", () => {
     expect(
       FeedbackCommittedAcceptanceEvidenceSchema.validate({
