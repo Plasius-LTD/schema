@@ -265,6 +265,22 @@ describe("strict schema mode", () => {
       expect.objectContaining({ code: "validation_complexity_limit" }),
     );
   });
+
+  it("counts wide primitive properties across the strict snapshot", () => {
+    const malformedScalar = Object.fromEntries(
+      Array.from({ length: 10_001 }, (_, index) => [`field${index}`, index]),
+    );
+
+    const result = FeedbackBugPacketSchema.validate({
+      ...bugPacket,
+      surfaceId: malformedScalar,
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({ code: "validation_complexity_limit" }),
+    );
+  });
 });
 
 describe("transient narrative contracts", () => {

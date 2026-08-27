@@ -8,8 +8,8 @@ reports, and the public honesty snapshot. It intentionally does not implement
 authentication, capability evaluation, encryption, storage, cooldowns, timer
 execution, or classification.
 
-Tracked delivery: `Plasius-LTD/schema#32` and
-`Plasius-LTD/schema#52`, under the privacy-safe feedback Epic. Consuming
+Tracked delivery: `Plasius-LTD/schema#32`, `Plasius-LTD/schema#52`, and
+`Plasius-LTD/schema#54`, under the privacy-safe feedback Epic. Consuming
 features remain default-off behind their named remote flags,
 including `feedback.bug-report.enabled`, `feedback.review.enabled`,
 `feedback.transient-analysis.enabled`, `feedback.reporting.enabled`,
@@ -25,6 +25,7 @@ including `feedback.bug-report.enabled`, `feedback.review.enabled`,
 | Draft storage | structured draft packet | Structured selections and derived projection only |
 | Accepted storage | bug/review packet, optional game diagnostics | Identifier-free structured facts |
 | Committed-acceptance evidence | packet UUID, kind, server acceptance time | Identifier-free proof that control commit completed |
+| Bug-health metrics projection | exact hour, finalized rejection/traffic/block counts | Identifier-free trusted operational facts |
 | Scheduled processing | hourly/daily reports, checkpoints, manifests | Identifier-free aggregates and safe operational state |
 | Public read model | public summary | Thresholded 90-day and weekly satisfaction facts |
 | Admin reconstruction | reconstruction manifest | Safe diagnostics and curated asset identifiers, never user pixels |
@@ -110,6 +111,17 @@ scanner activity.
   key, reservation, idempotency data, packet locator/hash, or request/content
   metadata. A packet present in Blob storage without this evidence is an
   orphan and must not enter reports.
+- `FeedbackBugHealthMetricsProjectionSchema` is the only scheduled-input
+  contract for bug-health facts that accepted packets cannot supply. It holds
+  one canonical UTC hour, a canonical UUIDv4 projection ID, a server-observed
+  finalization time no earlier than the window end, bounded application
+  rejection and traffic-denominator counts, and unique non-zero abuse-control
+  bands in the frozen allowlist order. Edge/control blocks are intentionally
+  independent from application rejections. The trusted producer must derive
+  the projection ID deterministically from the hour, write it immutably in a
+  separate private boundary, and grant the report reader no access to raw edge
+  telemetry. Consumers must verify the ID/window binding and fail closed on a
+  missing, malformed, non-final, duplicate, or mismatched projection.
 - `FeedbackGameDiagnosticsSchema` contains coarse renderer, backend, viewport,
   frame-rate, and frame-time buckets plus closed renderer-owned provenance,
   feature, counter, and error identifiers. It requires explicit consent,
@@ -179,10 +191,21 @@ the shape of evidence; the consuming system must create it through an atomic
 post-commit delivery protocol and use separate least-privilege identities for
 control delivery and report reads.
 
+The bug-health metrics projection also has an empty PII audit. It cannot
+express reporter/control identifiers, request or network metadata, headers,
+routes/URLs, narrative/ciphertext, pixels, Blob locators, hashes, logs, or raw
+telemetry. Counts are intentionally aggregate facts, not an event stream.
+
 Strict validation first applies a non-recursive whole-input node and depth
-budget before cloning. The budget covers malformed objects or arrays even when
-they are supplied under a scalar field, so a type-invalid request cannot evade
-the object-aware unknown-field walk and overflow the recursive clone.
+budget before cloning. It traverses own data-property descriptors and rejects
+enumerable accessors, symbol keys, exotic prototypes, sparse or oversized
+arrays, and malformed proxy traps without evaluating accessor values or
+reflecting thrown messages. The snapshot recreates array elements only after
+proving their logical length is bounded and dense, preventing a single huge
+numeric index from turning a small own-property set into an event-loop-blocking
+iteration. The budget covers malformed objects or arrays even when supplied
+under a scalar field, so a type-invalid request cannot evade the object-aware
+unknown-field walk and overflow the recursive clone.
 
 Schema validation is necessary but not sufficient for privacy. The consuming
 service must maintain no-body/no-ciphertext logging, use audited platform
@@ -210,6 +233,12 @@ The committed-acceptance evidence contract is additive. Existing packets and
 reports remain wire-compatible, but report processors must fail closed until
 their deployment can prove every selected packet through the new evidence
 boundary. There is no legacy fallback that scans all packet Blobs.
+
+The bug-health projection is also additive. Report processors must keep bug
+materialization disabled until its immutable producer, separate private
+storage mapping, reader identity, deterministic ID binding, and replay-safe
+window lookup are all deployed. Missing operational facts must never be
+invented as zeroes.
 
 The package evaluates no capability or feature flag. Consumer services must
 compose the relevant feature flag with projected capability decisions and
@@ -243,6 +272,10 @@ The requirement-derived suite covers:
 - all privacy-forbidden packet key classes;
 - canonical committed-acceptance evidence, empty PII audit, both packet kinds,
   storage round trips, exact identity, and privacy-forbidden evidence keys;
+- exact-hour finalized bug-health projections, frozen canonical abuse bands,
+  empty PII audit, storage round trips, and privacy-forbidden operational keys;
+- strict rejection of accessors, exotic values, sparse/oversized arrays, and
+  throwing proxy traps without evaluating or reflecting sensitive content;
 - scanner structured-only invariants and receipt/projection separation;
 - purpose-discriminated bug/review analysis and pre-decryption surface
   binding, including explicit-null rejection;

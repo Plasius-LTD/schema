@@ -113,6 +113,7 @@ reporting:
 
 ```ts
 import {
+  FeedbackBugHealthMetricsProjectionSchema,
   FeedbackBugPacketSchema,
   FeedbackCommittedAcceptanceEvidenceSchema,
   FeedbackPublicSummarySchema,
@@ -243,13 +244,29 @@ rather than by enumerating packet storage, preventing an immutable Blob written
 before a failed commit from entering aggregates. See
 [ADR-0011](./docs/adrs/adr-0011-identifier-free-feedback-acceptance-evidence.md).
 
+`FeedbackBugHealthMetricsProjectionSchema` is the separate trusted input for
+facts that accepted packets cannot supply: application rejection counts,
+privacy-safe traffic denominators, and allowlisted abuse-control block bands.
+It covers one exact UTC hour, is finalized no earlier than the window end, and
+contains no raw edge event, request, reporter, client, route, narrative, or
+pixel data. Abuse bands are unique, non-zero, and ordered by the frozen
+`FEEDBACK_ABUSE_BLOCK_BANDS` vocabulary. A producer must derive the
+`projectionId` deterministically from the hour and consumers must verify that
+binding before materialization; the schema deliberately performs no
+environment-dependent hashing. See
+[ADR-0012](./docs/adrs/adr-0012-identifier-free-bug-health-metrics-projection.md).
+
 All feedback contracts opt in to recursive unknown-field rejection, including
 direct references and arrays of references. Unshaped references admit only
 `type` and `id`; shaped references admit only those keys plus their declared
 fields. Closed feedback vocabularies and definition objects are runtime frozen
 before schemas capture them. Before recursive cloning, strict validation also
-performs an iterative whole-value node/depth budget so malformed containers
-hidden under scalar fields cannot exhaust the call stack. The
+performs an iterative whole-value node/depth budget and inspects own data
+property descriptors. It rejects enumerable accessors, symbol keys, exotic
+prototypes, sparse or oversized arrays, and malformed proxy traps without
+evaluating accessor values or reflecting thrown messages, so malformed
+containers hidden under scalar fields cannot exhaust the call stack or expand
+into an attacker-selected logical array length. The
 general schema default remains backwards-compatible stripping:
 
 ```ts
