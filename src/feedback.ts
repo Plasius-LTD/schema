@@ -72,6 +72,17 @@ export const FEEDBACK_BUG_COOLDOWN_SECONDS = Object.freeze([
 /** Exact post-review suppression period, in seconds. */
 export const FEEDBACK_REVIEW_COOLDOWN_SECONDS = 30 * 24 * 60 * 60;
 
+/** Closed abuse-control bands safe to aggregate without reporter identity. */
+export const FEEDBACK_ABUSE_BLOCK_BANDS = Object.freeze([
+  "five-minutes",
+  "fifteen-minutes",
+  "one-hour",
+  "six-hours",
+  "twenty-four-hours",
+  "fail-closed",
+  "edge-blocked",
+] as const);
+
 /** Stable issue types accepted by bug-report intake. */
 export const FEEDBACK_ISSUE_TYPES = [
   "visual-layout",
@@ -329,6 +340,10 @@ export type FeedbackThemeId = (typeof FEEDBACK_THEME_IDS)[number];
 /** Closed site-section identifier eligible for capability projection. */
 export type FeedbackSurfaceId = (typeof FEEDBACK_SURFACE_IDS)[number];
 
+/** Closed abuse-control aggregation band. */
+export type FeedbackAbuseBlockBand =
+  (typeof FEEDBACK_ABUSE_BLOCK_BANDS)[number];
+
 /** Supported rich-text mark. */
 export type FeedbackRichTextMark = "bold" | "italic" | "underline";
 
@@ -487,6 +502,25 @@ export interface FeedbackCommittedAcceptanceEvidence {
 export interface FeedbackCountBucket {
   id: string;
   count: number;
+}
+
+/** Allowlisted abuse-control count safe for identifier-free reports. */
+export interface FeedbackAbuseBlockBucket extends FeedbackCountBucket {
+  id: FeedbackAbuseBlockBand;
+}
+
+/** Identifier-free finalized facts supplied to one hourly bug-health window. */
+export interface FeedbackBugHealthMetricsProjection {
+  type: "feedback-bug-health-metrics-projection";
+  version: typeof FEEDBACK_CONTRACT_VERSION;
+  projectionId: string;
+  windowStart: string;
+  windowEnd: string;
+  observedAt: string;
+  finalized: true;
+  rejectedCount: number;
+  trafficDenominator: number;
+  abuseBlockBands: readonly FeedbackAbuseBlockBucket[];
 }
 
 /** A weekly public point that reveals nothing when the privacy threshold fails. */
@@ -1773,6 +1807,59 @@ export const FeedbackCommittedAcceptanceEvidenceSchema = createSchema(
   strictOptions,
 );
 
+/**
+ * Immutable identifier-free input for one exact UTC bug-health hour.
+ *
+ * The trusted producer owns the deterministic projection identifier. The
+ * schema validates its canonical UUID representation while consumers bind it
+ * to the requested window before using the projection.
+ */
+export const FeedbackBugHealthMetricsProjectionSchema = createSchema(
+  {
+    projectionId: uuidField(),
+    windowStart: canonicalServerUtcField(),
+    windowEnd: canonicalServerUtcField(),
+    observedAt: canonicalServerUtcField(),
+    finalized: field.boolean().validator((value) => value === true),
+    rejectedCount: countField(),
+    trafficDenominator: countField(),
+    abuseBlockBands: field
+      .array(
+        field.object({
+          id: field.string().enum(FEEDBACK_ABUSE_BLOCK_BANDS),
+          count: positiveCountField(),
+        }),
+      )
+      .max(FEEDBACK_ABUSE_BLOCK_BANDS.length),
+  },
+  "feedback-bug-health-metrics-projection",
+  {
+    ...strictOptions,
+    schemaValidator: (value) => {
+      const blockBands = value.abuseBlockBands as readonly FeedbackAbuseBlockBucket[];
+      let previousIndex = -1;
+      const canonicalBands = blockBands.every((bucket) => {
+        const index = FEEDBACK_ABUSE_BLOCK_BANDS.indexOf(bucket.id);
+        if (index <= previousIndex) {
+          return false;
+        }
+        previousIndex = index;
+        return true;
+      });
+
+      return (
+        orderedWindow(
+          { ...value, generatedAt: value.observedAt },
+          60 * 60 * 1_000,
+        ) &&
+        Date.parse(String(value.observedAt)) >=
+          Date.parse(String(value.windowEnd)) &&
+        canonicalBands
+      );
+    },
+  },
+);
+
 /** Safe facts used to reconstruct a representative in-game view server-side. */
 export const FeedbackGameReconstructionManifestSchema = createSchema(
   {
@@ -1937,23 +2024,11 @@ export const FeedbackHourlyBugReportSchema = createSchema(
       .array(
         field.object(
           distributionShape(() =>
-            field
-              .string()
-              .enum(
-                [
-                  "five-minutes",
-                  "fifteen-minutes",
-                  "one-hour",
-                  "six-hours",
-                  "twenty-four-hours",
-                  "fail-closed",
-                  "edge-blocked",
-                ] as const,
-              ),
+            field.string().enum(FEEDBACK_ABUSE_BLOCK_BANDS),
           ),
         ),
       )
-      .max(16),
+      .max(FEEDBACK_ABUSE_BLOCK_BANDS.length),
     comparison: field.object({
       previousHourRatio: field.number().min(0).max(1_000),
       sevenDaySameHourRatio: field.number().min(0).max(1_000),

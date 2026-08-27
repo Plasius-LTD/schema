@@ -422,6 +422,34 @@ describe("schema.ts – validator coverage", () => {
     ).toBe(false);
   });
 
+  it("contains cloning traps without reflecting sensitive messages", () => {
+    const S = createSchema({ value: field.string() }, "CloneTrap", {
+      version: "1.0.0",
+      piiEnforcement: "strict",
+    });
+    const hostile = new Proxy(
+      { value: "safe" },
+      {
+        get(target, property, receiver) {
+          if (property === "value") {
+            throw new Error("synthetic-secret@example.test");
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      }
+    );
+
+    let result: ReturnType<typeof S.validate> | undefined;
+    expect(() => {
+      result = S.validate(hostile);
+    }).not.toThrow();
+    expect(result?.valid).toBe(false);
+    expect(result?.errors).toContain("Input could not be safely cloned.");
+    expect(result?.errors?.join(" ")).not.toContain(
+      "synthetic-secret@example.test"
+    );
+  });
+
   it("allows only type, id, and declared fields in shaped strict refs", () => {
     const shapedRef = {
       type: "ref",

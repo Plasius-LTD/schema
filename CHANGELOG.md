@@ -12,6 +12,8 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 - **Added**
   - Added a closed, identifier-free committed feedback acceptance-evidence
     contract for evidence-backed report materialisation.
+  - Added a finalized, exact-hour bug-health metrics projection for trusted
+    rejection counts, traffic denominators, and closed abuse-control bands.
 
 - **Changed**
   - (placeholder)
@@ -26,6 +28,10 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
     giving trusted post-commit delivery a durable packet-kind/time proof that
     cannot carry reporter, control-plane, request, Blob-locator, hash,
     narrative, ciphertext, or pixel data.
+  - Rejected accessors, symbols, exotic prototypes, sparse/oversized arrays,
+    and malformed proxy traps at strict schema boundaries before cloning so
+    hostile values cannot be evaluated, expanded into an event-loop-blocking
+    logical array, or reflected through validation failures.
 
 ## [1.4.1] - 2026-08-24
 

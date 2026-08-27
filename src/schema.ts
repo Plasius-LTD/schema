@@ -295,12 +295,19 @@ const MAX_STRICT_VALIDATION_NODES = 10_000;
 const MAX_STRICT_VALIDATION_DEPTH = 256;
 const MAX_STRICT_VALIDATION_OBJECTS = MAX_STRICT_VALIDATION_NODES;
 
-function strictInputIsWithinComplexityLimit(input: unknown): boolean {
-  const pending: Array<{ value: unknown; depth: number }> = [
-    { value: input, depth: 0 },
-  ];
+type StrictInputSnapshot =
+  | { valid: true; value: Record<string, any> }
+  | { valid: false };
+
+function snapshotStrictInput(input: object): StrictInputSnapshot {
+  const snapshot: Record<string, any> = Array.isArray(input) ? [] : {};
+  const pending: Array<{
+    source: object;
+    target: Record<string, any>;
+    depth: number;
+  }> = [{ source: input, target: snapshot, depth: 0 }];
   const seen = new WeakSet<object>();
-  let visitedNodes = 0;
+  let visitedNodes = 1;
 
   try {
     while (pending.length > 0) {
@@ -308,44 +315,131 @@ function strictInputIsWithinComplexityLimit(input: unknown): boolean {
       if (!current) {
         continue;
       }
-      visitedNodes += 1;
       if (
         visitedNodes > MAX_STRICT_VALIDATION_NODES ||
         current.depth > MAX_STRICT_VALIDATION_DEPTH
       ) {
-        return false;
+        return { valid: false };
       }
-      if (
-        typeof current.value !== "object" ||
-        current.value === null
-      ) {
-        continue;
+      if (seen.has(current.source)) {
+        return { valid: false };
       }
-      if (seen.has(current.value)) {
-        return false;
-      }
-      seen.add(current.value);
+      seen.add(current.source);
 
-      const keys = Object.keys(current.value);
+      const isArray = Array.isArray(current.source);
+      const prototype = Object.getPrototypeOf(current.source);
       if (
-        visitedNodes + pending.length + keys.length >
-        MAX_STRICT_VALIDATION_NODES
+        (isArray && prototype !== Array.prototype) ||
+        (!isArray && prototype !== Object.prototype && prototype !== null)
       ) {
-        return false;
+        return { valid: false };
       }
-      const record = current.value as Record<string, unknown>;
+
+      const ownKeys = Reflect.ownKeys(current.source);
+      if (visitedNodes + ownKeys.length > MAX_STRICT_VALIDATION_NODES) {
+        return { valid: false };
+      }
+
+      const descriptors = new Map<PropertyKey, PropertyDescriptor>();
+      for (const key of ownKeys) {
+        const descriptor = Object.getOwnPropertyDescriptor(
+          current.source,
+          key,
+        );
+        if (descriptor === undefined) {
+          return { valid: false };
+        }
+        descriptors.set(key, descriptor);
+      }
+      if (isArray) {
+        const lengthDescriptor = descriptors.get("length");
+        if (
+          lengthDescriptor === undefined ||
+          !("value" in lengthDescriptor) ||
+          !Number.isSafeInteger(lengthDescriptor.value) ||
+          lengthDescriptor.value < 0 ||
+          lengthDescriptor.value > MAX_STRICT_VALIDATION_NODES
+        ) {
+          return { valid: false };
+        }
+
+        let elementCount = 0;
+        for (const key of ownKeys) {
+          if (key === "length") {
+            continue;
+          }
+          if (typeof key !== "string" || !/^(?:0|[1-9]\d*)$/.test(key)) {
+            return { valid: false };
+          }
+          const descriptor = descriptors.get(key);
+          if (
+            descriptor === undefined ||
+            descriptor.enumerable !== true ||
+            Number(key) >= lengthDescriptor.value
+          ) {
+            return { valid: false };
+          }
+          elementCount += 1;
+        }
+        if (elementCount !== lengthDescriptor.value) {
+          return { valid: false };
+        }
+      }
+      visitedNodes += ownKeys.length;
+      const keys = ownKeys.filter(
+        (key) => descriptors.get(key)?.enumerable,
+      );
       for (const key of keys) {
-        pending.push({
-          value: record[key],
-          depth: current.depth + 1,
+        if (typeof key !== "string") {
+          return { valid: false };
+        }
+        if (isArray && !/^(?:0|[1-9]\d*)$/.test(key)) {
+          return { valid: false };
+        }
+        const descriptor = descriptors.get(key);
+        if (
+          descriptor === undefined ||
+          !("value" in descriptor) ||
+          descriptor.get !== undefined ||
+          descriptor.set !== undefined
+        ) {
+          return { valid: false };
+        }
+
+        const child = descriptor.value;
+        if (typeof child === "function") {
+          return { valid: false };
+        }
+        if (typeof child === "object" && child !== null) {
+          const childSnapshot: Record<string, any> = Array.isArray(child)
+            ? []
+            : {};
+          Object.defineProperty(current.target, key, {
+            value: childSnapshot,
+            enumerable: true,
+            configurable: true,
+            writable: true,
+          });
+          pending.push({
+            source: child,
+            target: childSnapshot,
+            depth: current.depth + 1,
+          });
+          continue;
+        }
+        Object.defineProperty(current.target, key, {
+          value: child,
+          enumerable: true,
+          configurable: true,
+          writable: true,
         });
       }
     }
   } catch {
-    return false;
+    return { valid: false };
   }
 
-  return true;
+  return { valid: true, value: snapshot };
 }
 
 interface UnknownFieldScanState {
@@ -1175,8 +1269,10 @@ export function createSchema<S extends SchemaShape>(
       if (typeof input !== "object" || input === null) {
         return { valid: false, errors: ["Input must be an object"] } as any;
       }
+      let strictInputSnapshot: Record<string, any> | undefined;
       if (options.unknownFields === "reject") {
-        if (!strictInputIsWithinComplexityLimit(input)) {
+        const snapshot = snapshotStrictInput(input);
+        if (!snapshot.valid) {
           return {
             valid: false,
             errors: ["Strict validation complexity limit exceeded."],
@@ -1189,16 +1285,32 @@ export function createSchema<S extends SchemaShape>(
             ],
           } as any;
         }
+        strictInputSnapshot = snapshot.value;
         const scanState: UnknownFieldScanState = {
           remainingObjects: MAX_STRICT_VALIDATION_OBJECTS,
           limitExceeded: false,
         };
-        const locations = unknownFieldLocations(
-          input,
-          schema._shape,
-          "root",
-          scanState,
-        );
+        let locations: string[];
+        try {
+          locations = unknownFieldLocations(
+            strictInputSnapshot,
+            schema._shape,
+            "root",
+            scanState,
+          );
+        } catch {
+          return {
+            valid: false,
+            errors: ["Strict validation complexity limit exceeded."],
+            issues: [
+              {
+                path: "root",
+                code: "validation_complexity_limit",
+                message: "Strict validation complexity limit exceeded.",
+              },
+            ],
+          } as any;
+        }
         if (scanState.limitExceeded) {
           return {
             valid: false,
@@ -1227,10 +1339,27 @@ export function createSchema<S extends SchemaShape>(
         }
       }
       // Work on a non-mutating copy that includes system defaults for first-time objects
-      const working: Record<string, any> =
-        typeof input === "object" && input !== null
-          ? deepClone(input as any)
-          : { ...(input as any) };
+      let working: Record<string, any>;
+      try {
+        working =
+          strictInputSnapshot ??
+          (typeof input === "object" && input !== null
+            ? deepClone(input as any)
+            : { ...(input as any) });
+      } catch {
+        return {
+          valid: false,
+          errors: ["Input could not be safely cloned."],
+          issues: [
+            {
+              path: "root",
+              code: "unsafe_input",
+              message: "Input could not be safely cloned.",
+            },
+          ],
+        } as any;
+      }
+      const providedFieldNames = new Set(Object.keys(working));
       if (working.type == null) working.type = entityType;
       if (working.version == null) working.version = version;
 
@@ -1393,10 +1522,8 @@ export function createSchema<S extends SchemaShape>(
 
       if (errors.length === 0 && options.schemaValidator) {
         const castValue = result as Infer<S>;
-        const source = input as Record<string, unknown>;
         const validationContext: SchemaValidationContext = Object.freeze({
-          wasProvided: (fieldName: string) =>
-            Object.prototype.hasOwnProperty.call(source, fieldName),
+          wasProvided: (fieldName: string) => providedFieldNames.has(fieldName),
         });
         if (!options.schemaValidator(castValue, validationContext)) {
           errors.push("Schema-level validation failed.");

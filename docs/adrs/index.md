@@ -11,3 +11,4 @@
 - [ADR-0009: Separate display-name and personal-name validation](./adr-0009-separate-display-and-personal-name-validation.md)
 - [ADR-0010: Path-only private-artifact prevention gates](./adr-0010-path-only-private-artifact-prevention-gates.md)
 - [ADR-0011: Identifier-free feedback acceptance evidence](./adr-0011-identifier-free-feedback-acceptance-evidence.md)
+- [ADR-0012: Identifier-free bug-health metrics projection](./adr-0012-identifier-free-bug-health-metrics-projection.md)
