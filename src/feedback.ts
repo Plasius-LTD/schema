@@ -2542,6 +2542,10 @@ export const FeedbackMaterializationManifestSchema = createSchema(
     generatedAt: field.dateTimeISO(),
     sourcePacketCount: countField(),
     lateArrivalCount: countField(),
+    correctionReason: field
+      .string()
+      .enum(["late-arrival", "metrics-source"] as const)
+      .optional(),
     outputReportId: uuidField().optional(),
     status: field
       .string()
@@ -2562,6 +2566,7 @@ export const FeedbackMaterializationManifestSchema = createSchema(
           value.status === "no-op" &&
           value.revision >= 1 &&
           value.outputReportId === undefined &&
+          value.correctionReason === undefined &&
           value.lateArrivalCount === 0
         );
       }
@@ -2569,10 +2574,15 @@ export const FeedbackMaterializationManifestSchema = createSchema(
         (value.status === "published" &&
           value.revision === 1 &&
           value.lateArrivalCount === 0 &&
+          value.correctionReason === undefined &&
           value.outputReportId !== undefined) ||
         (value.status === "corrected" &&
           value.revision >= 2 &&
-          value.lateArrivalCount > 0 &&
+          ((value.correctionReason === "metrics-source" &&
+            value.lateArrivalCount === 0) ||
+            ((value.correctionReason === undefined ||
+              value.correctionReason === "late-arrival") &&
+              value.lateArrivalCount > 0)) &&
           value.outputReportId !== undefined)
       );
     },

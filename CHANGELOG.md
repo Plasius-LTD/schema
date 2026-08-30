@@ -13,7 +13,9 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - (placeholder)
 
 - **Changed**
-  - (placeholder)
+  - Added an explicit `metrics-source` materialization correction reason so a
+    revised report can truthfully carry zero late arrivals, while legacy and
+    explicit late-arrival corrections still require a positive count.
 
 - **Fixed**
   - (placeholder)

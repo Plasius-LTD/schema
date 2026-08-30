@@ -150,6 +150,9 @@ scanner activity.
   checkpoint IDs are exactly `checkpoint:<processor>:<windowKey>`. Report IDs
   are required only for report-producing processors, late arrivals cannot
   exceed source packets, and reconciliation cannot publish an output report.
+  Corrected manifests remain backward compatible for positive late-arrival
+  counts; an explicit `metrics-source` reason is the only correction permitted
+  with a zero late-arrival count.
   Blob ETags remain transport/storage metadata and are not embedded in
   checkpoint JSON.
 
