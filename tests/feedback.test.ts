@@ -2014,6 +2014,24 @@ describe("materialized report contracts", () => {
       FeedbackMaterializationManifestSchema.validate(reconciliationManifest)
         .valid,
     ).toBe(true);
+    expect(
+      FeedbackMaterializationManifestSchema.validate({
+        ...bugManifest,
+        revision: 2,
+        status: "corrected",
+        correctionReason: "metrics-source",
+        lateArrivalCount: 0,
+      }).valid,
+    ).toBe(true);
+    expect(
+      FeedbackMaterializationManifestSchema.validate({
+        ...bugManifest,
+        revision: 2,
+        status: "corrected",
+        correctionReason: "late-arrival",
+        lateArrivalCount: 1,
+      }).valid,
+    ).toBe(true);
 
     for (const invalidCheckpoint of [
       {
@@ -2043,6 +2061,21 @@ describe("materialized report contracts", () => {
         status: "corrected",
         lateArrivalCount: 0,
       },
+      {
+        ...bugManifest,
+        revision: 2,
+        status: "corrected",
+        correctionReason: "late-arrival",
+        lateArrivalCount: 0,
+      },
+      {
+        ...bugManifest,
+        revision: 2,
+        status: "corrected",
+        correctionReason: "metrics-source",
+        lateArrivalCount: 1,
+      },
+      { ...bugManifest, correctionReason: "metrics-source" },
       {
         ...bugManifest,
         status: "no-op",

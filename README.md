@@ -256,6 +256,11 @@ binding before materialization; the schema deliberately performs no
 environment-dependent hashing. See
 [ADR-0012](./docs/adrs/adr-0012-identifier-free-bug-health-metrics-projection.md).
 
+Materialization manifests may identify a revision as a `metrics-source`
+correction when an independently finalized identifier-free metric changed but
+no packet arrived late. That reason requires `lateArrivalCount: 0`; ordinary
+late-arrival corrections continue to require a positive late-arrival count.
+
 All feedback contracts opt in to recursive unknown-field rejection, including
 direct references and arrays of references. Unshaped references admit only
 `type` and `id`; shaped references admit only those keys plus their declared
