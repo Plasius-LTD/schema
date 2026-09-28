@@ -38,8 +38,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'
-          cache: 'npm'
-
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
       - name: Verify private artifact policy
         run: npm run privacy:check
 
