@@ -256,6 +256,10 @@ binding before materialization; the schema deliberately performs no
 environment-dependent hashing. See
 [ADR-0012](./docs/adrs/adr-0012-identifier-free-bug-health-metrics-projection.md).
 
+Feedback UUID fields accept primitive lowercase UUIDv4 strings. Malformed
+projection IDs, including symbols and boxed values, return an invalid result
+without coercion; direct UUID field validators apply the same boundary.
+
 Materialization manifests may identify a revision as a `metrics-source`
 correction when an independently finalized identifier-free metric changed but
 no packet arrived late. That reason requires `lateArrivalCount: 0`; ordinary
