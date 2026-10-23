@@ -16,7 +16,8 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - (placeholder)
 
 - **Fixed**
-  - (placeholder)
+  - Reject non-string feedback UUID values without coercion or uncaught symbol
+    errors, including projection, draft, and transient correlation identifiers.
 
 - **Security**
   - (placeholder)

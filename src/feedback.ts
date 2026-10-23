@@ -597,10 +597,13 @@ const strictOptions = {
   identity: "exact" as const,
 };
 
+const isOpaqueUuidV4 = (value: unknown): value is string =>
+  typeof value === "string" && OPAQUE_UUID_V4_PATTERN.test(value);
+
 const uuidField = () =>
   field
     .string()
-    .validator((value) => OPAQUE_UUID_V4_PATTERN.test(value))
+    .validator(isOpaqueUuidV4)
     .description("Opaque UUID generated for the feedback workflow");
 
 const isCanonicalServerUtc = (value: unknown): value is string => {
@@ -628,7 +631,7 @@ const canonicalServerUtcField = () =>
 const draftIdField = () =>
   field
     .string()
-    .validator((value) => OPAQUE_UUID_V4_PATTERN.test(value))
+    .validator(isOpaqueUuidV4)
     .description("Opaque identifier for one short-lived structured draft")
     .PID({
       classification: "low",
@@ -783,7 +786,7 @@ const narrativeTextField = () =>
 const transientCorrelationIdField = () =>
   field
     .string()
-    .validator((value) => OPAQUE_UUID_V4_PATTERN.test(value))
+    .validator(isOpaqueUuidV4)
     .PID({
       classification: "low",
       action: "clear",
