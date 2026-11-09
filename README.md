@@ -570,6 +570,12 @@ exact merge SHA, the workflow dispatches a separate `publish` run from that
 same SHA. Publication fails closed if `main`, CI evidence, the version, tag,
 prerelease identity, artifact digests, or npm registry integrity differ.
 
+Add meaningful notes under `## [Unreleased]` before preparing a release and
+omit unused categories. Preparation promotes the entries into the new version,
+preserves existing history, and leaves Unreleased empty for the next change.
+`npm run pack:check` rejects placeholder notes in any changelog section. See
+[ADR-0014](docs/adrs/adr-0014-validate-public-release-notes.md).
+
 The read-only validation job installs dependencies, validates the package,
 builds an SBOM, and seals an immutable tarball. The `production` job runs no
 package lifecycle or dependency code; it verifies the exact artifact hand-off

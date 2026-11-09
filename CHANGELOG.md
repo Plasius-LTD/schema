@@ -9,96 +9,32 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
-- **Added**
-  - (placeholder)
+### Fixed
 
-- **Changed**
-  - (placeholder)
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
+- Remove placeholder release notes and require meaningful changelog entries
+  when preparing a release.
 
 ## [1.4.9] - 2026-10-25
 
 - Refresh npm dependency lockfile to current supported stable versions (weekly maintenance, 2026-10-25).
 
-- **Added**
-  - (placeholder)
-
-- **Changed**
-  - (placeholder)
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
-
 ## [1.4.8] - 2026-10-23
-
-- **Added**
-  - (placeholder)
-
-- **Changed**
-  - (placeholder)
 
 - **Fixed**
   - Reject non-string feedback UUID values without coercion or uncaught symbol
     errors, including projection, draft, and transient correlation identifiers.
 
-- **Security**
-  - (placeholder)
-
 ## [1.4.7] - 2026-10-18
 
 - Refresh npm dependency lockfile to current supported stable versions (weekly maintenance, 2026-10-18).
-
-- **Added**
-  - (placeholder)
-
-- **Changed**
-  - (placeholder)
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
 
 ## [1.4.6] - 2026-10-11
 
 - Refresh npm dependency lockfile to current supported stable versions (weekly maintenance, 2026-10-11).
 
-- **Added**
-  - (placeholder)
-
-- **Changed**
-  - (placeholder)
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
-
 ## [1.4.5] - 2026-10-04
 
 - Refresh npm dependency lockfile to current supported stable versions (weekly maintenance, 2026-10-04).
-
-- **Added**
-  - (placeholder)
-
-- **Changed**
-  - (placeholder)
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
 
 ## [1.4.4] - 2026-09-28
 
@@ -106,33 +42,12 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 - Refresh npm dependency lockfile to current supported stable versions (weekly maintenance, 2026-09-28).
 
-- **Added**
-  - (placeholder)
-
-- **Changed**
-  - (placeholder)
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
-
 ## [1.4.3] - 2026-08-30
-
-- **Added**
-  - (placeholder)
 
 - **Changed**
   - Added an explicit `metrics-source` materialization correction reason so a
     revised report can truthfully carry zero late arrivals, while legacy and
     explicit late-arrival corrections still require a positive count.
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
 
 ## [1.4.2] - 2026-08-27
 
@@ -141,9 +56,6 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
     contract for evidence-backed report materialisation.
   - Added a finalized, exact-hour bug-health metrics projection for trusted
     rejection counts, traffic denominators, and closed abuse-control bands.
-
-- **Changed**
-  - (placeholder)
 
 - **Fixed**
   - Made committed feedback acceptance-time validation fail closed for
@@ -162,25 +74,7 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 ## [1.4.1] - 2026-08-24
 
-- **Added**
-  - (placeholder)
-
-- **Changed**
-  - (placeholder)
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
-
 ## [1.4.0] - 2026-08-13
-
-- **Added**
-  - (placeholder)
-
-- **Changed**
-  - (placeholder)
 
 - **Fixed**
   - Corrected the release-preparation JavaScript terminator so stable package
@@ -319,19 +213,7 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
     Event Log/Achievement schemas with strict safe-text validation and
     privacy-safe `playerId` metadata.
 
-- **Changed**
-  - (placeholder)
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
-
 ## [1.2.18] - 2026-07-12
-
-- **Added**
-  - (placeholder)
 
 - **Changed**
   - Expanded the documented BCP 47 subset with case-insensitive subtags,
@@ -341,138 +223,26 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - Documented email validation as a pragmatic product subset rather than full
     RFC 5322 mailbox conformance.
 
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
-
 ## [1.2.17] - 2026-06-28
-
-- **Added**
-  - (placeholder)
-
-- **Changed**
-  - (placeholder)
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
 
 ## [1.2.16] - 2026-06-22
 
-- **Added**
-  - (placeholder)
-
-- **Changed**
-  - (placeholder)
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
-
 ## [1.2.15] - 2026-06-22
-
-- **Added**
-  - (placeholder)
-
-- **Changed**
-  - (placeholder)
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
 
 ## [1.2.12] - 2026-06-01
 
-- **Added**
-  - (placeholder)
-
-- **Changed**
-  - (placeholder)
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
-
 ## [1.2.11] - 2026-05-13
-
-- **Added**
-  - (placeholder)
 
 - **Changed**
   - Refreshed development dependencies to the latest stable published versions.
-  - (placeholder)
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
 
 ## [1.2.10] - 2026-04-21
 
-- **Added**
-  - (placeholder)
-
-- **Changed**
-  - (placeholder)
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
-
 ## [1.2.9] - 2026-04-21
-
-- **Added**
-  - (placeholder)
-
-- **Changed**
-  - (placeholder)
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
 
 ## [1.2.8] - 2026-04-02
 
-- **Added**
-  - (placeholder)
-
-- **Changed**
-  - (placeholder)
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
-
 ## [1.2.7] - 2026-03-27
-
-- **Added**
-  - (placeholder)
-
-- **Changed**
-  - (placeholder)
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
 
 ## [1.2.6] - 2026-03-09
 
@@ -486,13 +256,7 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 - **Fixed**
   - Prevented server-only fields from being treated as implicitly safe for client responses when callers serialize entities through the schema contract.
 
-- **Security**
-  - (placeholder)
-
 ## [1.2.5] - 2026-03-04
-
-- **Added**
-  - (placeholder)
 
 - **Changed**
   - Added template-level dual-module packaging policy that mandates runtime-safe CommonJS boundaries when emitting `dist-cjs/*.js` under `type: module`.
@@ -500,22 +264,7 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 - **Fixed**
   - Established publish-time guardrails (`build` + `pack:check`) in template governance to prevent dual-module regressions in downstream `@plasius/*` packages.
 
-- **Security**
-  - (placeholder)
-
 ## [1.2.2] - 2026-02-28
-
-- **Added**
-  - (placeholder)
-
-- **Changed**
-  - (placeholder)
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
 
 ## [1.2.1] - 2026-01-22
 
@@ -524,13 +273,6 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 - **Changed**
   - Restore `main`, `module`, and `types` fields alongside the export map for broader CJS/ESM tool compatibility.
-  - (placeholder)
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
 
 ## [1.2.0] - 2025-12-31
 
@@ -562,9 +304,6 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - PII strict/warn enforcement now applies to nested fields (objects, arrays, refs), blocking empty high-PII subfields.
   - ISO 3166-1 list updated to include `PS`; ISO 4217 list updated to include `SLE` (while retaining `SLL` for legacy data).
 
-- **Security**
-  - (placeholder)
-
 ## [1.1.1] - 2025-09-24
 
 - **Added**
@@ -578,12 +317,6 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
     - "main": "./dist/index.cjs",
     - "module": "./dist/index.js",
     - "types": "./dist/index.d.ts",
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
 
 ## [1.1.0] - 2025-09-18
 
@@ -614,9 +347,6 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 - **Fixed**
   - validateISODateTime for dateTime now accepts string matches that might not be the same as the date.toISOString() return value but are still valid ISO Date Time Strings.
-
-- **Security**
-  - (placeholder)
 
 ## [1.0.18] - 2025-09-17
 
@@ -691,14 +421,6 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 - **Added**
   - Initial release.
 
-- **Changed**
-  - (placeholder)
-
-- **Fixed**
-  - (placeholder)
-
-- **Security**
-  - (placeholder)
 [1.2.2]: https://github.com/Plasius-LTD/schema/releases/tag/v1.2.2
 [1.2.5]: https://github.com/Plasius-LTD/schema/releases/tag/v1.2.5
 [1.2.6]: https://github.com/Plasius-LTD/schema/releases/tag/v1.2.6

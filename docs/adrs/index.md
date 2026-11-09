@@ -13,3 +13,4 @@
 - [ADR-0011: Identifier-free feedback acceptance evidence](./adr-0011-identifier-free-feedback-acceptance-evidence.md)
 - [ADR-0012: Identifier-free bug-health metrics projection](./adr-0012-identifier-free-bug-health-metrics-projection.md)
 - [ADR-0013: Distinguish metrics-source report corrections](./adr-0013-distinguish-metrics-source-report-corrections.md)
+- [ADR-0014: Validate public release notes](./adr-0014-validate-public-release-notes.md)
