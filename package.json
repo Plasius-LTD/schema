@@ -63,7 +63,7 @@
     "prepare": "npm run build",
     "clean": "rimraf dist",
     "test:coverage": "vitest run --coverage",
-    "pack:check": "npm run privacy:check && node scripts/verify-public-package.cjs",
+    "pack:check": "node scripts/release-changelog.mjs check CHANGELOG.md && npm run privacy:check && node scripts/verify-public-package.cjs",
     "privacy:check": "node scripts/verify-private-artifacts.cjs",
     "unicode:check": "node scripts/generate-feedback-unicode-profile.cjs --check",
     "unicode:generate": "node scripts/generate-feedback-unicode-profile.cjs",

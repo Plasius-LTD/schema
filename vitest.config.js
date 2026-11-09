@@ -15,7 +15,7 @@ export default defineConfig({
         "tests/**",
         "dist/**",
         "coverage/**",
-        "scripts/**",
+        "scripts/!(release-changelog).*",
         "**/*.config.{js,ts}",
         "**/.eslintrc.{js,cjs}",
         "eslint.config.js",

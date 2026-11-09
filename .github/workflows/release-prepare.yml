@@ -319,63 +319,8 @@ jobs:
             fi
           fi
 
-          if ! grep -q "^## \[${TARGET_VER}\]" "${FILE}"; then
-            UNREL_START=$(grep -nE '^## (\[Unreleased\]|Unreleased)( |$)' "${FILE}" | head -n 1 | cut -d: -f1 || true)
-            if [ -z "${UNREL_START}" ]; then
-              echo "No '## [Unreleased]' or '## Unreleased' section found in CHANGELOG.md." >&2
-              exit 1
-            fi
-
-            DATE=$(date -u +%Y-%m-%d)
-            VERSION_LINE="## [${TARGET_VER}] - ${DATE}"
-            NEXT_HDR=$(awk 'NR>'"${UNREL_START}"' && /^## /{print NR; exit}' "${FILE}")
-            if [ -z "${NEXT_HDR}" ]; then
-              NEXT_HDR=$(wc -l < "${FILE}")
-              NEXT_HDR=$((NEXT_HDR+1))
-            fi
-
-            HEADER=$(sed -n "1,${UNREL_START}p" "${FILE}")
-            UNREL_CONTENT=$(sed -n "$((UNREL_START+1)),$((NEXT_HDR-1))p" "${FILE}")
-            TAIL=$(sed -n "${NEXT_HDR},\$p" "${FILE}")
-
-            NEW_UNRELEASED=$(printf '%s\n' \
-              '' \
-              '- **Added**' \
-              '  - (placeholder)' \
-              '' \
-              '- **Changed**' \
-              '  - (placeholder)' \
-              '' \
-              '- **Fixed**' \
-              '  - (placeholder)' \
-              '' \
-              '- **Security**' \
-              '  - (placeholder)')
-
-            TMP_FILE=$(mktemp)
-            {
-              printf "%s\n" "${HEADER}"
-              printf "%s\n\n" "${NEW_UNRELEASED}"
-              printf "%s\n" "${VERSION_LINE}"
-              if [ -z "$(echo "${UNREL_CONTENT}" | tr -d '\n' | tr -d '[:space:]')" ]; then
-                printf "### Changed\n- (no notable changes)\n\n"
-              else
-                printf "%s\n" "${UNREL_CONTENT}"
-                printf "\n"
-              fi
-              printf "%s\n" "${TAIL}"
-            } > "${TMP_FILE}"
-
-            mv "${TMP_FILE}" "${FILE}"
-
-            COMPARE_URL="https://github.com/${GITHUB_REPOSITORY}/compare/${TAG}...HEAD"
-            awk -v repl="[Unreleased]: ${COMPARE_URL}" 'BEGIN{OFS=FS} { if ($0 ~ /^\[Unreleased\]: /) { print repl } else { print } }' "${FILE}" > "${FILE}.tmp"
-            mv "${FILE}.tmp" "${FILE}"
-
-            if ! grep -q "^\[${TARGET_VER}\]:" "${FILE}"; then
-              echo "[${TARGET_VER}]: https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}" >> "${FILE}"
-            fi
-          fi
+          node scripts/release-changelog.mjs prepare "${FILE}" "${TARGET_VER}" \
+            "$(date -u +%Y-%m-%d)" "${TAG}" "${GITHUB_REPOSITORY}"
 
           git add "${PACKAGE_JSON}"
           if [ -f package-lock.json ]; then
@@ -445,10 +390,7 @@ jobs:
             exit 1
           fi
 
-          if ! grep -q "^## \[${TARGET_VER}\]" "${FILE}"; then
-            echo "${BASE_BRANCH} is missing ${FILE} release section ${TARGET_VER}." >&2
-            exit 1
-          fi
+          node scripts/release-changelog.mjs check "${FILE}" "${TARGET_VER}"
 
           if npm view "${NAME}" version >/dev/null 2>&1; then
             FLAGS=""
