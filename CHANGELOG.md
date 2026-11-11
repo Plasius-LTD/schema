@@ -9,6 +9,8 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-11
+
 ### Added
 
 - Publish separate, versioned contracts for actor-free feedback review state,
@@ -414,7 +416,7 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 ---
 
-[Unreleased]: https://github.com/Plasius-LTD/schema/compare/v1.4.10...HEAD
+[Unreleased]: https://github.com/Plasius-LTD/schema/compare/v1.5.0...HEAD
 [1.0.0]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.0
 [1.0.13]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.13
 [1.0.17]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.17
@@ -455,3 +457,4 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 [1.4.8]: https://github.com/Plasius-LTD/schema/releases/tag/v1.4.8
 [1.4.9]: https://github.com/Plasius-LTD/schema/releases/tag/v1.4.9
 [1.4.10]: https://github.com/Plasius-LTD/schema/releases/tag/v1.4.10
+[1.5.0]: https://github.com/Plasius-LTD/schema/releases/tag/v1.5.0
