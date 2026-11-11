@@ -12,11 +12,16 @@ export const FEEDBACK_REVIEW_ACTIONS = Object.freeze(["mark-reviewed", "process"
 export const FEEDBACK_REVIEW_OUTCOMES = Object.freeze([
   "action-tracked", "duplicate", "acknowledged", "no-action",
 ] as const);
+/** The two feedback kinds supported by the review queue. */
 export type FeedbackReviewKind = (typeof FEEDBACK_REVIEW_KINDS)[number];
+/** The explicit review state of a single accepted feedback item. */
 export type FeedbackReviewStatus = (typeof FEEDBACK_REVIEW_STATUSES)[number];
+/** A reviewer-directed action; reading an item never changes its state. */
 export type FeedbackReviewAction = (typeof FEEDBACK_REVIEW_ACTIONS)[number];
+/** The closed set of outcomes a reviewer may record when processing an item. */
 export type FeedbackReviewOutcome = (typeof FEEDBACK_REVIEW_OUTCOMES)[number];
 
+/** Minimal actor-free state for an accepted packet; expiry remains anchored to that packet. */
 export interface FeedbackReviewWorkflowState {
   type?: "feedback-review-workflow-state";
   version?: typeof FEEDBACK_REVIEW_WORKFLOW_CONTRACT_VERSION;
@@ -34,6 +39,7 @@ export interface FeedbackReviewWorkflowState {
   satisfaction?: number;
 }
 
+/** An explicit command with an optimistic concurrency revision. The transport carries idempotency separately. */
 export type FeedbackReviewTransitionRequest = {
   expectedRevision: number;
 } & (
@@ -41,6 +47,7 @@ export type FeedbackReviewTransitionRequest = {
   | { action: "process"; outcome: FeedbackReviewOutcome }
 );
 
+/** One immutable transition in the history of an accepted packet, without actor identity. */
 export interface FeedbackReviewTransitionEvent {
   type?: "feedback-review-transition-event";
   version?: typeof FEEDBACK_REVIEW_WORKFLOW_CONTRACT_VERSION;
@@ -56,6 +63,7 @@ export interface FeedbackReviewTransitionEvent {
   outcome?: FeedbackReviewOutcome;
 }
 
+/** Server-only retry and audit linkage for a committed transition. */
 export interface FeedbackReviewIdempotencyReceipt extends Omit<FeedbackReviewTransitionEvent, "type"> {
   type?: "feedback-review-idempotency-receipt";
   expectedRevision: number;
@@ -65,6 +73,7 @@ export interface FeedbackReviewIdempotencyReceipt extends Omit<FeedbackReviewTra
   auditStatus: "pending" | "complete";
 }
 
+/** Server-only progress and lease metadata for a queue projection. */
 export interface FeedbackReviewProjectionCheckpoint {
   type?: "feedback-review-projection-checkpoint";
   version?: typeof FEEDBACK_REVIEW_WORKFLOW_CONTRACT_VERSION;
@@ -78,6 +87,7 @@ export interface FeedbackReviewProjectionCheckpoint {
   leaseEpoch: number;
 }
 
+/** An explicit bounded UTC range and closed filters. The host must authenticate the cursor. */
 export interface FeedbackReviewQueueQuery {
   kind: FeedbackReviewKind;
   status?: FeedbackReviewStatus;
@@ -92,6 +102,7 @@ export interface FeedbackReviewQueueQuery {
   cursor?: string;
 }
 
+/** Whether retained history is fully projected and current enough to report as fresh. */
 export interface FeedbackReviewProjectionFreshness {
   status: "incomplete" | "fresh" | "stale";
   checkedAt: string;
@@ -99,6 +110,7 @@ export interface FeedbackReviewProjectionFreshness {
   lastSuccessfulAt?: string;
 }
 
+/** A bounded page of actor-free states with its effective query and freshness. */
 export interface FeedbackReviewQueuePage {
   items: FeedbackReviewWorkflowState[];
   range: FeedbackReviewQueueQuery;
@@ -106,6 +118,7 @@ export interface FeedbackReviewQueuePage {
   nextCursor?: string;
 }
 
+/** One bounded, ascending page of transition history for a single accepted packet. */
 export interface FeedbackReviewHistoryPage {
   packetId: string;
   kind: FeedbackReviewKind;
@@ -114,6 +127,7 @@ export interface FeedbackReviewHistoryPage {
   nextCursor?: string;
 }
 
+/** The current actor-free state and compatible history page for one packet. */
 export interface FeedbackReviewItemDetail {
   state: FeedbackReviewWorkflowState;
   history: FeedbackReviewHistoryPage;
