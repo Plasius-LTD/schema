@@ -9,6 +9,12 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+### Added
+
+- Publish separate, versioned contracts for actor-free feedback review state,
+  explicit transitions, idempotency receipts, projection checkpoints, and bounded
+  queue and item history. Existing feedback packet and receipt contracts are unchanged.
+
 ## [1.4.10] - 2026-11-09
 
 ### Fixed

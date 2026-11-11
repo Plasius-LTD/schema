@@ -108,6 +108,43 @@ and hidden server truth are excluded by schema serialization.
 
 ## Privacy-safe feedback contracts
 
+### Admin review workflow
+
+The separately versioned `FEEDBACK_REVIEW_WORKFLOW_CONTRACT_VERSION` (`1.0.0`)
+adds closed contracts without changing existing packet or acceptance-receipt
+schemas. Import `FeedbackReviewWorkflowStateSchema`,
+`FeedbackReviewTransitionRequestSchema`, `FeedbackReviewTransitionEventSchema`,
+`FeedbackReviewIdempotencyReceiptSchema`,
+`FeedbackReviewProjectionCheckpointSchema`, `FeedbackReviewQueueQuerySchema`,
+`FeedbackReviewProjectionFreshnessSchema`, `FeedbackReviewQueuePageSchema`,
+`FeedbackReviewHistoryPageSchema`, and `FeedbackReviewItemDetailSchema` from
+the package root.
+
+State is a minimal packet/filter projection, not a copy of feedback. The only
+commands are `mark-reviewed`, `process` with a closed outcome, and `reopen`.
+Commands require an expected revision. State/history retain no reporter or
+reviewer identity, notes, links, or narrative. Per-operation random audit IDs
+and encoded change-feed continuation data are internal-only fields; consumers
+must never use stable account-derived values for those IDs or return internal
+receipts/checkpoints to Admin/MCP. Nested queue, history, and detail projections
+inherit their enclosing workflow version and omit nested `type`/`version`; use
+`prepareForStorage` on validated fragments before embedding them.
+
+Queue ranges are explicit, at most 90 days for bugs or 395 days for reviews,
+with at most 100 items per page. History pages contain at most 25 ascending
+revisions for one packet. The detail response rejects history for a different
+packet or original expiry, or ahead of the reported state. Query tokens have a
+bounded base64url shape; the service must authenticate and bind them to filters.
+Incomplete backfill cannot claim fresh status, and freshness expires after
+ten minutes. State and history carry a fixed original-packet expiry, with
+chronology and maximum-retention checks. These contracts cannot prove packet
+acceptance, authorisation, audit durability, cursor authenticity, or an
+unchanged expiry across separate requests: the service and transactional
+entity layer must enforce those boundaries. See
+[ADR-0015](./docs/adrs/adr-0015-feedback-review-workflow-contracts.md).
+
+### Intake and reporting
+
 The package exports closed, versioned contracts for feedback intake and
 reporting:
 
