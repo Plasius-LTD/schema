@@ -9,6 +9,10 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+### Changed
+
+- Refresh build, lint and test dependencies, including patched minimatch 11, Vitest 5 and tsup 9; retain TypeScript 6 within the supported ESLint parser peer range.
+
 ## [1.5.0] - 2026-11-11
 
 ### Added
