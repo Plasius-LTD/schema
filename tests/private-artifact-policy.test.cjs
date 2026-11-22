@@ -595,3 +595,16 @@ test("tracked paths remain governed until their deletion is staged", (t) => {
     ]
   );
 });
+
+
+test("sealed inventory accepts the reviewed tsup 9 declarations and rejects stale chunks", () => {
+  const verifier = require("../scripts/verify-public-package.cjs");
+  const inventory = EXPECTED_PACKED_PATHS.map((member) => member
+    .replace("feedback-diagnostics-BaniQAFS.d.cts", "feedback-diagnostics-BJVIG6Wd.d.cts")
+    .replace("feedback-diagnostics-CnsI0B9-.d.ts", "feedback-diagnostics-DWlXScPV.d.ts"));
+  assert.doesNotThrow(() => verifier.verifyPackagePathInventory(inventory));
+  const stale = inventory.map((member) => member
+    .replace("feedback-diagnostics-BJVIG6Wd.d.cts", "feedback-diagnostics-BaniQAFS.d.cts"));
+  assert.throws(() => verifier.verifyPackagePathInventory(stale), /exact allowlist/u);
+  assert.throws(() => verifier.verifyPackagePathInventory([...inventory, "dist/unreviewed.d.ts"]), /exact allowlist/u);
+});
