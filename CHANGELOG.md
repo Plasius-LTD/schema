@@ -9,6 +9,8 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+## [1.5.3] - 2026-11-24
+
 - Add a shared, explicitly enrolled first-registration path using the standard
   temporary `NPM_TOKEN`, preserving tokenless OIDC for normal releases and
   refusing existing packages, missing enrollment and mismatched release identity (#87).
@@ -435,7 +437,7 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 ---
 
-[Unreleased]: https://github.com/Plasius-LTD/schema/compare/v1.5.2...HEAD
+[Unreleased]: https://github.com/Plasius-LTD/schema/compare/v1.5.3...HEAD
 [1.0.0]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.0
 [1.0.13]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.13
 [1.0.17]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.17
@@ -479,3 +481,4 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 [1.5.0]: https://github.com/Plasius-LTD/schema/releases/tag/v1.5.0
 [1.5.1]: https://github.com/Plasius-LTD/schema/releases/tag/v1.5.1
 [1.5.2]: https://github.com/Plasius-LTD/schema/releases/tag/v1.5.2
+[1.5.3]: https://github.com/Plasius-LTD/schema/releases/tag/v1.5.3
