@@ -15,3 +15,4 @@
 - [ADR-0013: Distinguish metrics-source report corrections](./adr-0013-distinguish-metrics-source-report-corrections.md)
 - [ADR-0014: Validate public release notes](./adr-0014-validate-public-release-notes.md)
 - [ADR-0015: Actor-free feedback review workflow contracts](./adr-0015-feedback-review-workflow-contracts.md)
+- [ADR-0016: Shared first package registration](./adr-0016-shared-first-package-registration.md)

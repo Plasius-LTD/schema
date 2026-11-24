@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
@@ -75,6 +75,17 @@ describe("release workflow trust boundaries", () => {
     expect(cdWorkflow.match(/npm install --global npm@11\.6\.2 --ignore-scripts --registry https:\/\/registry\.npmjs\.org/gu)).toHaveLength(2);
   });
 
+  it("rejects malformed npm versions before applying the minimum-version gate", () => {
+    const guards = [...cdWorkflow.matchAll(/node - "\$\{ACTUAL_NPM\}" <<'NODE'\n([\s\S]*?)\n\s+NODE/gu)];
+    expect(guards).toHaveLength(2);
+    for (const [, guard] of guards) {
+      for (const [version, status] of [["11.6.2", 0], ["11.5.1", 0], ["11.4.9", 1], ["10.9.0", 1], ["invalid", 1], ["11.x.2", 1], ["11.6", 1]] as const) {
+        const result = spawnSync(process.execPath, ["-", version], { input: guard, encoding: "utf8" });
+        expect(result.status, version).toBe(status);
+      }
+    }
+  });
+
   it("rechecks current main immediately before npm and propagates fetch failures", () => {
     const stepName = "\n      - name: Revalidate exact main immediately before npm publication\n";
     const step = cdWorkflow.split(stepName)[1]?.split("\n      - name:")[0] ?? "";
@@ -90,13 +101,19 @@ describe("release workflow trust boundaries", () => {
     }
   });
 
-  it("uses hosted OIDC publication without npm write tokens", () => {
+  it("uses tokenless hosted OIDC and confines registration to the reviewed separate step", () => {
     expect(cdWorkflow).toContain("runs-on: ubuntu-latest");
     expect(cdWorkflow).toContain("environment: production");
     expect(cdWorkflow).toContain("id-token: write");
     expect(cdWorkflow).toContain("--provenance");
     expect(cdWorkflow).toContain("npm publish");
-    expect(cdWorkflow).not.toContain("NPM_TOKEN");
+    const name = "      - name: Register new package with standard npm credential\n";
+    const registration = cdWorkflow.split(name)[1]?.split("\n      - name:")[0];
+    expect(registration).toBeTruthy();
+    expect(cdWorkflow.replace(name + registration, "")).not.toContain("NPM_TOKEN");
+    expect(registration).toContain("if: steps.release.outputs.should_publish_npm == 'true' && inputs.first_publication");
+    expect(registration).toContain("node scripts/verify-first-publication.mjs");
+    expect(existsSync(new URL("../.github/npm-first-publication.json", import.meta.url))).toBe(false);
     expect(cdWorkflow).not.toContain("NODE_AUTH_TOKEN");
     expect(npmConfig).not.toContain("_authToken");
     expect(npmConfig).not.toContain("NODE_AUTH_TOKEN");

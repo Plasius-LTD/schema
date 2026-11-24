@@ -239,9 +239,12 @@ jobs:
             fi
           fi
 
+          CURRENT_TAG_COMMIT="$(git rev-parse --verify "${CURRENT_TAG}^{commit}" 2>/dev/null || true)"
+          CURRENT_SOURCE_COMMIT="$(git rev-parse HEAD)"
+
           if [ "${BUMP}" = "none" ]; then
             TARGET_VER="${CURRENT_VER}"
-          elif grep -Eq "^## (\[${CURRENT_VER}\]|${CURRENT_VER})( |$)" "${FILE}" && { [ "${CURRENT_PUBLISHED}" != "true" ] || [ "${CURRENT_RELEASE_STATE}" != "published" ]; }; then
+          elif grep -Eq "^## (\[${CURRENT_VER}\]|${CURRENT_VER})( |$)" "${FILE}" && { [ "${CURRENT_PUBLISHED}" != "true" ] || [ "${CURRENT_RELEASE_STATE}" != "published" ]; } && { [ -z "${CURRENT_TAG_COMMIT}" ] || [ "${CURRENT_TAG_COMMIT}" = "${CURRENT_SOURCE_COMMIT}" ]; }; then
             echo "Reusing already-prepared incomplete release version ${CURRENT_VER}."
             TARGET_VER="${CURRENT_VER}"
           else

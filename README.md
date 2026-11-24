@@ -617,8 +617,8 @@ The read-only validation job installs dependencies, validates the package,
 builds an SBOM, and seals an immutable tarball. The `production` job runs no
 package lifecycle or dependency code; it verifies the exact artifact hand-off
 and rechecks the collision-free exact raw-member inventory before publishing
-that tarball through npm OIDC with provenance. No npm write token or fallback
-is configured. The trusted publisher must be bound to `Plasius-LTD/schema`,
+that tarball through npm OIDC with provenance. Ordinary releases use no npm
+write token or fallback. The trusted publisher must be bound to `Plasius-LTD/schema`,
 `cd.yml`, `production`, and `npm publish`. Rollback is to disable `cd.yml`;
 never restore token-based publication.
 <!-- END PLASIUS RELEASE INTEGRITY -->
@@ -627,3 +627,14 @@ The shared release template installs the approved npm 11.6.2 client in both
 release jobs and rechecks current main immediately before npm publication.
 A moved main or failed fetch stops publication without a token fallback. See
 [the template alignment design](docs/design/release-template-alignment.md).
+
+New packages can enroll for first registration through the same template with
+a reviewed `.github/npm-first-publication.json` specifying their exact
+`repository`, `packageName` and unused initial `version`. Schema has no enrollment
+and refuses this route. Explicit `first_publication: true` requires matching main
+CI, an absent registry package and the standard short-lived production `NPM_TOKEN`;
+only the isolated sealed-tarball step receives that credential. It never acts as
+an OIDC fallback. Remove enrollment after registration, configure the exact npm
+trusted publisher, verify an ordinary OIDC release, and retire the temporary
+credential. See [the registration design](docs/design/first-package-registration.md)
+and [ADR-0016](docs/adrs/adr-0016-shared-first-package-registration.md).
