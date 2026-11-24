@@ -198,6 +198,7 @@ jobs:
             exit 1
           fi
 
+          npm install --global npm@11.6.2 --ignore-scripts --registry https://registry.npmjs.org
           ACTUAL_NPM="$(npm --version)"
           node - "${ACTUAL_NPM}" <<'NODE'
           const actual = process.argv[2].split(".").map(Number);
@@ -477,6 +478,7 @@ jobs:
             exit 1
           fi
 
+          npm install --global npm@11.6.2 --ignore-scripts --registry https://registry.npmjs.org
           ACTUAL_NPM="$(npm --version)"
           node - "${ACTUAL_NPM}" <<'NODE'
           const actual = process.argv[2].split(".").map(Number);
@@ -842,6 +844,19 @@ jobs:
         uses: actions/attest-build-provenance@v3
         with:
           subject-path: ${{ steps.release.outputs.sbom_path }}
+
+      - name: Revalidate exact main immediately before npm publication
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_commit_sha }}
+        run: |
+          set -euo pipefail
+
+          git fetch origin main --no-tags
+          REMOTE_MAIN="$(git rev-parse refs/remotes/origin/main)"
+          if [ "${REMOTE_MAIN}" != "${EXPECTED_SHA}" ]; then
+            echo "main moved to ${REMOTE_MAIN}; refusing npm publication for ${EXPECTED_SHA}." >&2
+            exit 1
+          fi
 
       - name: Publish package through npm OIDC
         if: steps.release.outputs.should_publish_npm == 'true'

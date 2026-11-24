@@ -67,3 +67,12 @@ never restores token publication.
 - One shared concurrency group was rejected because the self-dispatched
   publish run would wait behind the prepare run; unsupported queue extensions
   are not part of the GitHub Actions workflow schema.
+
+## Shared-template correction, 24 November 2026
+
+Task #84 restores explicit npm 11.6.2 installation in both release jobs and
+rechecks current main immediately before npm publication. A failed fetch or
+changed SHA stops publication. This brings the shared template into the existing
+release-integrity contract before glob adopts it. OIDC and existing template
+credentials remain unchanged; no npm publishing secret or fallback is added.
+See [the alignment design](../design/release-template-alignment.md).

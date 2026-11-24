@@ -71,6 +71,25 @@ describe("release workflow trust boundaries", () => {
     expect(result.stdout).toBe("");
   });
 
+  it("pins the approved npm client before checking both release runtimes", () => {
+    expect(cdWorkflow.match(/npm install --global npm@11\.6\.2 --ignore-scripts --registry https:\/\/registry\.npmjs\.org/gu)).toHaveLength(2);
+  });
+
+  it("rechecks current main immediately before npm and propagates fetch failures", () => {
+    const stepName = "\n      - name: Revalidate exact main immediately before npm publication\n";
+    const step = cdWorkflow.split(stepName)[1]?.split("\n      - name:")[0] ?? "";
+    const body = step.split("        run: |\n")[1]?.split("\n").map(line => line.replace(/^ {10}/u, "")).join("\n");
+    expect(body).toBeTruthy();
+    expect(cdWorkflow.indexOf(stepName)).toBeLessThan(cdWorkflow.indexOf("\n      - name: Publish package through npm OIDC\n"));
+    for (const [fetchStatus, remote, expected] of [[0, "a", 0], [0, "b", 1], [7, "a", 7]] as const) {
+      const mocks = `git() { if [ "$1" = fetch ]; then return ${fetchStatus}; elif [ "$1" = rev-parse ]; then printf '%s' '${remote.repeat(40)}'; else return 99; fi; }\n`;
+      const result = spawnSync("bash", ["-c", mocks + body], {
+        encoding: "utf8", env: { PATH: process.env.PATH, EXPECTED_SHA: "a".repeat(40) },
+      });
+      expect(result.status, result.stderr).toBe(expected);
+    }
+  });
+
   it("uses hosted OIDC publication without npm write tokens", () => {
     expect(cdWorkflow).toContain("runs-on: ubuntu-latest");
     expect(cdWorkflow).toContain("environment: production");
