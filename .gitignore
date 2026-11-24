@@ -1,6 +1,7 @@
 node_modules/
 dist/
 coverage/
+.first-publication-lcov.info
 .npm-cache-packcheck/
 *.log
 # CSV files are prohibited by the repository privacy policy.

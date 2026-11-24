@@ -1,5 +1,9 @@
 # ADR-0008: Exact-main OIDC package publishing
 
+The ordinary release contract remains unchanged. [ADR-0016](adr-0016-shared-first-package-registration.md)
+adds an explicitly enrolled, default-off initial-registration branch for packages
+that do not yet exist; it is never an OIDC fallback, and Schema is not enrolled.
+
 - Status: Accepted
 - Date: 2026-07-29
 

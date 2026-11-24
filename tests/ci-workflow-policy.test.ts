@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
@@ -90,13 +90,19 @@ describe("release workflow trust boundaries", () => {
     }
   });
 
-  it("uses hosted OIDC publication without npm write tokens", () => {
+  it("uses tokenless hosted OIDC and confines registration to the reviewed separate step", () => {
     expect(cdWorkflow).toContain("runs-on: ubuntu-latest");
     expect(cdWorkflow).toContain("environment: production");
     expect(cdWorkflow).toContain("id-token: write");
     expect(cdWorkflow).toContain("--provenance");
     expect(cdWorkflow).toContain("npm publish");
-    expect(cdWorkflow).not.toContain("NPM_TOKEN");
+    const name = "      - name: Register new package with standard npm credential\n";
+    const registration = cdWorkflow.split(name)[1]?.split("\n      - name:")[0];
+    expect(registration).toBeTruthy();
+    expect(cdWorkflow.replace(name + registration, "")).not.toContain("NPM_TOKEN");
+    expect(registration).toContain("if: steps.release.outputs.should_publish_npm == 'true' && inputs.first_publication");
+    expect(registration).toContain("node scripts/verify-first-publication.mjs");
+    expect(existsSync(new URL("../.github/npm-first-publication.json", import.meta.url))).toBe(false);
     expect(cdWorkflow).not.toContain("NODE_AUTH_TOKEN");
     expect(npmConfig).not.toContain("_authToken");
     expect(npmConfig).not.toContain("NODE_AUTH_TOKEN");

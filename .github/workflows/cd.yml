@@ -33,6 +33,11 @@ on:
         description: "Internal fail-closed release tag for the publish phase"
         required: false
         type: string
+      first_publication:
+        description: "Register a reviewed, enrolled package only while absent from npm; normal releases use OIDC."
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -124,6 +129,7 @@ jobs:
           EXPECTED_SHA: ${{ needs.prepare_release.outputs.commit_sha }}
           RELEASE_TAG: ${{ needs.prepare_release.outputs.tag }}
           PREID: ${{ needs.prepare_release.outputs.effective_preid }}
+          FIRST_PUBLICATION: ${{ inputs.first_publication }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -139,12 +145,14 @@ jobs:
             --arg sha "${EXPECTED_SHA}" \
             --arg tag "${RELEASE_TAG}" \
             --arg preid "${PREID}" \
+            --arg first_publication "${FIRST_PUBLICATION}" \
             '{
               "ref": "main",
               "inputs": {
                 "phase": "publish",
                 "bump": "none",
                 "preid": $preid,
+                "first_publication": $first_publication,
                 "expected_commit_sha": $sha,
                 "release_tag": $tag
               }
@@ -859,7 +867,7 @@ jobs:
           fi
 
       - name: Publish package through npm OIDC
-        if: steps.release.outputs.should_publish_npm == 'true'
+        if: steps.release.outputs.should_publish_npm == 'true' && !inputs.first_publication
         env:
           DIST_TAG: ${{ steps.release.outputs.dist_tag }}
           TARBALL: ${{ steps.release.outputs.tarball_path }}
@@ -868,6 +876,34 @@ jobs:
 
           PUBLISH_ARGS=(--access public --provenance --registry https://registry.npmjs.org --tag "${DIST_TAG}")
           npm publish "./${TARBALL}" --ignore-scripts "${PUBLISH_ARGS[@]}"
+
+      - name: Register new package with standard npm credential
+        if: steps.release.outputs.should_publish_npm == 'true' && inputs.first_publication
+        env:
+          FIRST_PUBLICATION: ${{ inputs.first_publication }}
+          PACKAGE_NAME: ${{ steps.release.outputs.package_name }}
+          PACKAGE_VERSION: ${{ steps.release.outputs.release_version }}
+          EXPECTED_SHA: ${{ inputs.expected_commit_sha }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          DIST_TAG: ${{ steps.release.outputs.dist_tag }}
+          TARBALL: ${{ steps.release.outputs.tarball_path }}
+        run: |
+          set -euo pipefail
+
+          ACTUAL_SHA="$(git rev-parse HEAD)" node scripts/verify-first-publication.mjs
+          git fetch origin main --no-tags
+          REMOTE_MAIN="$(git rev-parse refs/remotes/origin/main)"
+          if [ "${REMOTE_MAIN}" != "${EXPECTED_SHA}" ]; then
+            echo "main moved; refusing first publication." >&2
+            exit 1
+          fi
+
+          umask 077
+          INITIAL_NPM_CONFIG="$(mktemp "${RUNNER_TEMP}/npm-first-publication.XXXXXX")"
+          trap 'rm -f -- "${INITIAL_NPM_CONFIG}"' EXIT
+          printf '%s\n' '//registry.npmjs.org/:_authToken=${NPM_TOKEN}' > "${INITIAL_NPM_CONFIG}"
+          PUBLISH_ARGS=(--access public --provenance --registry https://registry.npmjs.org --tag "${DIST_TAG}")
+          NPM_CONFIG_USERCONFIG="${INITIAL_NPM_CONFIG}" npm publish "./${TARBALL}" --ignore-scripts "${PUBLISH_ARGS[@]}"
 
       - name: Skip duplicate npm publication
         if: steps.release.outputs.should_publish_npm != 'true'
