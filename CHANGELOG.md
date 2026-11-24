@@ -12,6 +12,8 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 - Add a shared, explicitly enrolled first-registration path using the standard
   temporary `NPM_TOKEN`, preserving tokenless OIDC for normal releases and
   refusing existing packages, missing enrollment and mismatched release identity (#87).
+- Preserve immutable tag identity when resuming incomplete releases, reject
+  malformed npm versions, and route CI coverage arguments to the intended runner.
 
 ## [1.5.2] - 2026-11-24
 
