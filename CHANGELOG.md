@@ -9,6 +9,8 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-11-24
+
 - Restore the shared release template's approved npm client and immediate
   current-main publication check while retaining standard OIDC authentication (#84).
 
@@ -425,7 +427,7 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 ---
 
-[Unreleased]: https://github.com/Plasius-LTD/schema/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/Plasius-LTD/schema/compare/v1.5.2...HEAD
 [1.0.0]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.0
 [1.0.13]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.13
 [1.0.17]: https://github.com/Plasius-LTD/schema/releases/tag/v1.0.17
@@ -468,3 +470,4 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 [1.4.10]: https://github.com/Plasius-LTD/schema/releases/tag/v1.4.10
 [1.5.0]: https://github.com/Plasius-LTD/schema/releases/tag/v1.5.0
 [1.5.1]: https://github.com/Plasius-LTD/schema/releases/tag/v1.5.1
+[1.5.2]: https://github.com/Plasius-LTD/schema/releases/tag/v1.5.2
