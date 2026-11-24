@@ -14,6 +14,8 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   refusing existing packages, missing enrollment and mismatched release identity (#87).
 - Preserve immutable tag identity when resuming incomplete releases, reject
   malformed npm versions, and route CI coverage arguments to the intended runner.
+- Exercise dispatch forwarding through a portable JSON-tool test boundary so
+  self-hosted validation does not require the publisher's system jq installation.
 
 ## [1.5.2] - 2026-11-24
 

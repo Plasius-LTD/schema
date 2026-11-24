@@ -62,6 +62,9 @@ needs `NPM_TOKEN`.
   restricted temporary config, credential cleanup on success/failure, no secret
   output, scripts disabled and no token in the normal OIDC step.
 - Workflow forwarding preserves false/true exactly; the default is false.
+- Dispatch shell tests resolve the actual JSON expression through a bounded
+  JSON-object/`--arg` fixture. This preserves argument and payload assertions
+  without requiring system jq on test runners; hosted CD still executes jq.
 - The site release auditor accepts only the reviewed template, helper and exact
   enrolled descriptors, preserves the prior arcade route during migration, and
   rejects altered or unapproved routes. Schema's absent descriptor is explicitly

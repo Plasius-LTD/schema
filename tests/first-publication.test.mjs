@@ -158,10 +158,35 @@ describe("shared registration workflow isolation", () => {
       const directory = mkdtempSync(join(tmpdir(), "first-publication-dispatch-"));
       const marker = join(directory, "dispatch.json");
       try {
-        const mocks = `git() { if [ "$1" = fetch ]; then return 0; elif [ "$1" = rev-parse ]; then printf '%s' "$EXPECTED_SHA"; else return 99; fi; }\ngh() { [ "$1" = api ] && [ "$2" = -X ] && [ "$3" = POST ] || return 99; cat > "$DISPATCH_MARKER"; }\n`;
+        // Model jq's JSON-object/--arg boundary; execute the real shell forwarding
+        // without requiring the hosted publisher's system jq on CI/test machines.
+        // Resolve the actual expression rather than hard-coding a successful payload.
+        const jsonTool = join(directory, "json-tool.cjs");
+        writeFileSync(jsonTool, String.raw`
+const assert = require('node:assert/strict');
+const args = process.argv.slice(2);
+assert.equal(args.shift(), '-n');
+const values = new Map();
+while (args[0] === '--arg') {
+  args.shift();
+  const name = args.shift(), value = args.shift();
+  assert.match(name, /^[a-z_]+$/u);
+  assert.equal(values.has(name), false);
+  assert.equal(typeof value, 'string');
+  values.set(name, value);
+}
+assert.equal(args.length, 1);
+const expression = args[0].replace(/\$([a-z_]+)/gu, (_, name) => {
+  assert.equal(values.has(name), true);
+  return JSON.stringify(values.get(name));
+});
+process.stdout.write(JSON.stringify(JSON.parse(expression)));
+`);
+        const mocks = `git() { if [ "$1" = fetch ]; then return 0; elif [ "$1" = rev-parse ]; then printf '%s' "$EXPECTED_SHA"; else return 99; fi; }\ngh() { [ "$1" = api ] && [ "$2" = -X ] && [ "$3" = POST ] || return 99; cat > "$DISPATCH_MARKER"; }\njq() { "$TEST_NODE" "$TEST_JSON_TOOL" "$@"; }\n`;
         const result = spawnSync("bash", ["-c", mocks + script], { encoding: "utf8", env: {
           PATH: process.env.PATH, EXPECTED_SHA: sha, RELEASE_TAG: "v1.0.2", PREID: "",
           FIRST_PUBLICATION: optIn, GITHUB_REPOSITORY: descriptor.repository, DISPATCH_MARKER: marker,
+          TEST_NODE: process.execPath, TEST_JSON_TOOL: jsonTool,
         } });
         assert.equal(result.status, 0, result.stderr);
         assert.deepEqual(JSON.parse(readFileSync(marker, "utf8")), { ref: "main", inputs: {
