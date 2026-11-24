@@ -75,6 +75,17 @@ describe("release workflow trust boundaries", () => {
     expect(cdWorkflow.match(/npm install --global npm@11\.6\.2 --ignore-scripts --registry https:\/\/registry\.npmjs\.org/gu)).toHaveLength(2);
   });
 
+  it("rejects malformed npm versions before applying the minimum-version gate", () => {
+    const guards = [...cdWorkflow.matchAll(/node - "\$\{ACTUAL_NPM\}" <<'NODE'\n([\s\S]*?)\n\s+NODE/gu)];
+    expect(guards).toHaveLength(2);
+    for (const [, guard] of guards) {
+      for (const [version, status] of [["11.6.2", 0], ["11.5.1", 0], ["11.4.9", 1], ["10.9.0", 1], ["invalid", 1], ["11.x.2", 1], ["11.6", 1]] as const) {
+        const result = spawnSync(process.execPath, ["-", version], { input: guard, encoding: "utf8" });
+        expect(result.status, version).toBe(status);
+      }
+    }
+  });
+
   it("rechecks current main immediately before npm and propagates fetch failures", () => {
     const stepName = "\n      - name: Revalidate exact main immediately before npm publication\n";
     const step = cdWorkflow.split(stepName)[1]?.split("\n      - name:")[0] ?? "";

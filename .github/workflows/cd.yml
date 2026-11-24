@@ -209,6 +209,7 @@ jobs:
           npm install --global npm@11.6.2 --ignore-scripts --registry https://registry.npmjs.org
           ACTUAL_NPM="$(npm --version)"
           node - "${ACTUAL_NPM}" <<'NODE'
+          if (!/^\d+\.\d+\.\d+$/u.test(process.argv[2] ?? "")) process.exit(1);
           const actual = process.argv[2].split(".").map(Number);
           const minimum = "11.5.1".split(".").map(Number);
           for (let index = 0; index < 3; index += 1) {
@@ -489,6 +490,7 @@ jobs:
           npm install --global npm@11.6.2 --ignore-scripts --registry https://registry.npmjs.org
           ACTUAL_NPM="$(npm --version)"
           node - "${ACTUAL_NPM}" <<'NODE'
+          if (!/^\d+\.\d+\.\d+$/u.test(process.argv[2] ?? "")) process.exit(1);
           const actual = process.argv[2].split(".").map(Number);
           const minimum = "11.5.1".split(".").map(Number);
           for (let index = 0; index < 3; index += 1) {
