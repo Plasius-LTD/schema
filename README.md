@@ -622,3 +622,8 @@ is configured. The trusted publisher must be bound to `Plasius-LTD/schema`,
 `cd.yml`, `production`, and `npm publish`. Rollback is to disable `cd.yml`;
 never restore token-based publication.
 <!-- END PLASIUS RELEASE INTEGRITY -->
+
+The shared release template installs the approved npm 11.6.2 client in both
+release jobs and rechecks current main immediately before npm publication.
+A moved main or failed fetch stops publication without a token fallback. See
+[the template alignment design](docs/design/release-template-alignment.md).

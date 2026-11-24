@@ -9,6 +9,9 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+- Restore the shared release template's approved npm client and immediate
+  current-main publication check while retaining standard OIDC authentication (#84).
+
 ## [1.5.1] - 2026-11-22
 
 ### Changed
